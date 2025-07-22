@@ -1,0 +1,59 @@
+# MY PERSONAL GITIGNORES
+outs/
+data/
+.vscode/
+references/
+Rplots.pdf
+
+*.cloupe
+*.gz
+*.mro
+*.tsv
+*.mtx
+*.out
+*.pickle
+
+# python generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+*.py[cod]
+*$py.class
+
+# venv
+.venv
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# DS store
+.DS_Store

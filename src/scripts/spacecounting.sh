@@ -87,35 +87,37 @@ if [ -n "$outs" ]; then
     echo "Date: $(date)"
     echo "Input CSV: $input_csv"
     echo "==================================="
+    echo
 fi
 
 # ================== BEGIN SCRIPT ==================
 
 echo $(pwd)
 
-while IFS=',' read -r sample directory slide area; do
+while IFS=',' read -r sample directory slide area cytassist image; do
     # Skip header
     [ "$sample" = "sample" ] && continue
-    
-    # Find image file
-    image=$(find "$directory/$sample" -name "*.tif" -type f)
     
     # Print variables
     echo "Processing $sample"
     echo "* FastQ files:" $(find "$directory/$sample" -name "*.fastq.gz" -type f)
-    echo "* Image files:" "$image"
     echo "* Slide: $slide"
     echo "* Area: $area"
+    echo "* Cytassist: $cytassist"
+    echo "* Full Image: $image"
 
     # Create output directory
     resultdir="./data/spaceranger/$(basename $directory)/$sample"
     echo "$resultdir"
-    # mkdir -p "$resultdir"
+    mkdir -p "$resultdir"
 
     # Run spaceranger
+    # Cmdline usage: https://www.10xgenomics.com/support/software/space-ranger/latest/tutorials/count-ffpe-tutorial
+    # Inputs info: https://www.10xgenomics.com/support/software/space-ranger/latest/analysis/inputs/input-overview
     time spaceranger count --id "$sample" \
         --fastqs "$directory/$sample" \
-        --cytaimage "$image" \
+        --image "$directory/$sample/$image" \
+        --cytaimage "$directory/$sample/$cytassist" \
         --slide "$slide" \
         --area "$area" \
         --transcriptome $transcriptome \

@@ -26,15 +26,15 @@ def R_preload() -> bool:
     library(BiocParallel)
     library(scater)
     library(Seurat)
-    library("loupeR")
     library(convert2anndata)
+    library(terra)
     options(Seurat.object.assay.version = "v3")
 
     # others
     library(scry)
     library(scDblFinder)
     library(DoubletFinder)
-    # library(orthogene)
+    library("loupeR")
          
     options(max.print = 300)
     """

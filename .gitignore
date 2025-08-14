@@ -1,8 +1,8 @@
 # MY PERSONAL GITIGNORES
 outs/
 data/
-.vscode/
 references/
+tutorials/
 Rplots.pdf
 
 *.cloupe
@@ -57,3 +57,4 @@ MANIFEST
 
 # DS store
 .DS_Store
+.Rproj.user

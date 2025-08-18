@@ -26,7 +26,9 @@ def Filter_QC(
     sc.pp.filter_genes(adata, min_cells=CellPerGene)
     adata.var_names_make_unique()
     if verbose is True:
-        print(f"Cells removed by gene/count filters: {start - adata.shape[0]}")
+        print(
+            f"Cells removed by gene/count filters: {start - adata.shape[0]} ({(start - adata.shape[0])/start*100:.2f}%)"
+        )
     return adata
 
 
@@ -42,18 +44,21 @@ def Filter_GeneGroup(
     adata.var[key] = adata.var_names.str.startswith(marker)
 
     # calculate & save metrics
-    sc.pp.calculate_qc_metrics(adata, qc_vars=[key], inplace=True, percent_top=[20], log1p=True)
+    sc.pp.calculate_qc_metrics(
+        adata, qc_vars=[key], inplace=True, percent_top=[20], log1p=True
+    )
     remove = [f"total_counts_{key}", f"log1p_total_counts_{key}"]
-    adata.obs = adata.obs[[x for x in adata.obs.columns if x not in remove]]
-
+    adata.obs = adata.obs.loc[:, ~adata.obs.columns.isin(remove)]
 
     # filter
     if perc_threshold is not None:
+        thresholded = adata.obs[f"pct_counts_{key}"] >= perc_threshold
         if verbose is True:
             print(
-                f"Cells with >{perc_threshold}% {key} genes: {np.sum(adata.obs[f"pct_counts_{key}"] >= perc_threshold)}"
+                f"Cells with >{perc_threshold}% {key} genes: {np.sum(thresholded)} ({np.sum(thresholded)/adata.shape[0]*100:.2f}%)"
             )
-        adata = adata[adata.obs[f"pct_counts_{key}"] <= perc_threshold, :]
+        adata = adata[thresholded]
+
     return adata
 
 
@@ -231,7 +236,7 @@ def Normalize(
 
     elif kind == "mnn":
         tmp = adata.copy()
-        sce.pp.mnn(tmp)
+        sce.pp.mnn_correct(tmp)
         adata.layers["normalized"] = tmp.X
         adata.uns["methods"]["normalization"] = "mnn"
 
@@ -398,11 +403,11 @@ def Integrate(
     return adata
 
 
-def Visualize(adata, key=""):
     # UMAP
+def Visualize(adata, key="", use_rep="integrated", neighbor_key=None):
     print("Starting UMAP...")
-    sc.pp.neighbors(adata, use_rep="integrated")
-    sc.tl.umap(adata, key_added=f"UMAP{key}")
+    sc.pp.neighbors(adata, use_rep=use_rep, key_added=neighbor_key)
+    sc.tl.umap(adata, key_added=f"UMAP{key}", neighbors_key=neighbor_key)
 
     # LocalMAP
     print("Starting LocalMAP...")

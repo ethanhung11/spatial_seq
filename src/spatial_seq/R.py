@@ -16,26 +16,26 @@ def get_converter():
 
 
 def R_preload() -> bool:
-    ro.r(
-        """
-    # general
-    library(dplyr)
-    library(here)
-    
-    # single-cell general
-    library(BiocParallel)
-    library(scater)
-    library(Seurat)
-    library(convert2anndata)
-    library(terra)
-    options(Seurat.object.assay.version = "v3")
+        ro.r(
+            """
+        # general
+        library(dplyr)
+        library(here)
+        
+        # single-cell general
+        library(BiocParallel)
+        library(scater)
+        library(Seurat)
+        library(convert2anndata)
+        library(terra)
+        options(Seurat.object.assay.version = "v3")
 
-    # others
-    library(scry)
-    library(scDblFinder)
-    library(DoubletFinder)
-    library("loupeR")
-         
-    options(max.print = 300)
-    """
-    )
+        # others
+        library(scry)
+        library(scDblFinder)
+        library(DoubletFinder)
+        library("loupeR")
+            
+        options(max.print = 300)
+        """
+        )

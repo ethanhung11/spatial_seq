@@ -2,6 +2,7 @@ import rpy2.robjects as ro
 from .R import R_preload, get_converter
 from scanpy import AnnData
 
+
 def create_cloupe(adata: AnnData):
     with ro.conversion.localconverter(get_converter()):
         R_preload()

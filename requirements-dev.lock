@@ -10,6 +10,8 @@
 #   universal: false
 
 -e file:.
+adjusttext==1.3.0
+    # via decoupler
 aiobotocore==2.23.1
     # via s3fs
 aiohappyeyeballs==2.6.1
@@ -18,21 +20,27 @@ aiohttp==3.12.14
     # via aiobotocore
     # via ome-zarr
     # via s3fs
+    # via squidpy
 aioitertools==0.12.0
     # via aiobotocore
 aiosignal==1.4.0
     # via aiohttp
 alabaster==1.0.0
     # via sphinx
-anndata==0.12.0
+anndata==0.12.2
     # via anndata2ri
+    # via decoupler
     # via doubletdetection
+    # via liana
+    # via mudata
     # via napari-spatialdata
     # via readfcs
     # via scanpy
     # via scvi
+    # via spatial-seq
     # via spatialdata
     # via spatialdata-io
+    # via squidpy
 anndata2ri==1.3.2
     # via spatial-seq
 annotated-types==0.7.0
@@ -63,6 +71,7 @@ async-lru==2.0.5
 attrs==25.3.0
     # via aiohttp
     # via jsonschema
+    # via omnipath
     # via referencing
 babel==2.17.0
     # via jupyterlab-server
@@ -89,6 +98,8 @@ certifi==2025.7.14
 cffi==1.17.1
     # via argon2-cffi-bindings
     # via rpy2-rinterface
+cfgv==3.4.0
+    # via pre-commit
 charset-normalizer==3.4.2
     # via requests
 click==8.2.1
@@ -112,6 +123,7 @@ contourpy==1.3.2
 cycler==0.12.1
     # via matplotlib
     # via napari-spatialdata
+    # via squidpy
 dask==2024.11.2
     # via dask-expr
     # via dask-image
@@ -120,23 +132,34 @@ dask==2024.11.2
     # via napari-spatialdata
     # via ome-zarr
     # via spatialdata
+    # via squidpy
 dask-expr==1.1.19
     # via dask
 dask-image==2024.5.3
     # via spatialdata
     # via spatialdata-io
+    # via squidpy
 datashader==0.18.1
     # via xarray-spatial
 debugpy==1.8.15
     # via ipykernel
 decorator==5.2.1
     # via ipython
+decoupler==2.1.1
+    # via spatial-seq
 defusedxml==0.7.1
     # via nbconvert
 deprecated==1.2.18
     # via numcodecs
+distlib==0.4.0
+    # via virtualenv
 dnspython==2.7.0
     # via pymongo
+docrep==0.3.2
+    # via decoupler
+    # via liana
+    # via omnipath
+    # via squidpy
 docstring-parser==0.17.0
     # via magicgui
 docutils==0.21.2
@@ -155,6 +178,7 @@ fbpca==1.0
     # via geosketch
 filelock==3.18.0
     # via torch
+    # via virtualenv
 flexcache==0.3
     # via pint
 flexparser==0.4
@@ -175,6 +199,7 @@ fsspec==2025.7.0
     # via ome-zarr
     # via s3fs
     # via spatialdata
+    # via squidpy
     # via torch
 future==1.0.0
     # via hyperopt
@@ -184,6 +209,8 @@ geopandas==1.1.1
 geosketch==1.3
     # via spatial-seq
 glasbey==0.3.0
+    # via spatial-seq
+gseapy==1.1.9
     # via spatial-seq
 h11==0.16.0
     # via httpcore
@@ -204,6 +231,8 @@ httpx==0.28.1
     # via jupyterlab
 hyperopt==0.1.2
     # via scvi
+identify==2.6.13
+    # via pre-commit
 idna==3.10
     # via anyio
     # via httpx
@@ -225,6 +254,8 @@ imagesize==1.4.1
     # via sphinx
 in-n-out==0.2.1
     # via app-model
+inflect==7.5.0
+    # via omnipath
 ipykernel==6.30.0
     # via jupyter
     # via jupyter-console
@@ -327,9 +358,13 @@ lazy-loader==0.4
 legacy-api-wrap==1.4.1
     # via anndata
     # via scanpy
+legendkit==0.3.6
+    # via marsilea
 leidenalg==0.10.2
     # via phenograph
     # via scanpy
+liana==1.5.1
+    # via spatial-seq
 llvmlite==0.44.0
     # via numba
     # via pynndescent
@@ -346,27 +381,42 @@ markdown-it-py==3.0.0
 markupsafe==3.0.2
     # via jinja2
     # via nbconvert
+marsilea==0.5.4
+    # via decoupler
 matplotlib==3.10.3
+    # via adjusttext
     # via doubletdetection
     # via glasbey
+    # via gseapy
+    # via legendkit
+    # via marsilea
     # via matplotlib-scalebar
     # via napari-matplotlib
     # via napari-spatialdata
+    # via plotnine
     # via scanpy
     # via scvi
     # via seaborn
     # via spatialdata-plot
+    # via squidpy
 matplotlib-inline==0.1.7
     # via ipykernel
     # via ipython
 matplotlib-scalebar==0.9.0
     # via spatialdata-plot
+    # via squidpy
 mdurl==0.1.2
     # via markdown-it-py
 mistune==3.1.3
     # via nbconvert
+mizani==0.14.2
+    # via plotnine
+more-itertools==10.7.0
+    # via inflect
 mpmath==1.3.0
     # via sympy
+mudata==0.3.2
+    # via liana
 multidict==6.6.3
     # via aiobotocore
     # via aiohttp
@@ -410,7 +460,10 @@ networkx==3.5
     # via scanpy
     # via scikit-image
     # via spatialdata
+    # via squidpy
     # via torch
+nodeenv==1.9.1
+    # via pre-commit
 notebook==7.4.4
     # via jupyter
 notebook-shim==0.2.4
@@ -420,17 +473,21 @@ npe2==0.7.9
     # via napari
 numba==0.61.2
     # via datashader
+    # via decoupler
     # via glasbey
+    # via liana
     # via napari-spatialdata
     # via pacmap
     # via pynndescent
     # via scanpy
     # via spatialdata
+    # via squidpy
     # via umap-learn
     # via xarray-spatial
 numcodecs==0.15.1
     # via zarr
 numpy==2.2.6
+    # via adjusttext
     # via anndata
     # via colorspacious
     # via contourpy
@@ -442,13 +499,16 @@ numpy==2.2.6
     # via geopandas
     # via geosketch
     # via glasbey
+    # via gseapy
     # via h5py
     # via harmonypy
     # via hyperopt
     # via imagecodecs
     # via imageio
     # via itables
+    # via marsilea
     # via matplotlib
+    # via mizani
     # via multiscale-spatial-image
     # via napari
     # via napari-matplotlib
@@ -462,8 +522,10 @@ numpy==2.2.6
     # via patsy
     # via phenograph
     # via pims
+    # via plotnine
     # via pyogrio
     # via pyqtgraph
+    # via pyscipopt
     # via scanpy
     # via scikit-image
     # via scikit-learn
@@ -475,6 +537,7 @@ numpy==2.2.6
     # via spatial-image
     # via spatialdata
     # via spatialdata-io
+    # via squidpy
     # via statsmodels
     # via tifffile
     # via umap-learn
@@ -524,6 +587,8 @@ ome-types==0.6.1
     # via spatialdata-io
 ome-zarr==0.11.1
     # via spatialdata
+omnipath==1.0.12
+    # via squidpy
 openpyxl==3.1.5
     # via spatial-seq
 overrides==7.7.0
@@ -544,6 +609,7 @@ packaging==25.0
     # via matplotlib
     # via napari-spatialdata
     # via nbconvert
+    # via omnipath
     # via pims
     # via pooch
     # via pyogrio
@@ -565,14 +631,20 @@ pandas==2.3.1
     # via dask-image
     # via datashader
     # via geopandas
+    # via gseapy
     # via harmonypy
     # via itables
+    # via marsilea
+    # via mizani
     # via napari
     # via napari-spatialdata
+    # via omnipath
+    # via plotnine
     # via scanpy
     # via scvi
     # via seaborn
     # via spatialdata
+    # via squidpy
     # via statsmodels
     # via xarray
 pandocfilters==1.5.1
@@ -599,6 +671,7 @@ pillow==11.3.0
     # via napari
     # via napari-spatialdata
     # via scikit-image
+    # via squidpy
 pims==0.7
     # via dask-image
 pint==0.24.4
@@ -606,12 +679,18 @@ pint==0.24.4
 platformdirs==4.3.8
     # via black
     # via jupyter-core
+    # via marsilea
     # via npe2
     # via pint
     # via pooch
+    # via virtualenv
+plotnine==0.15.0
+    # via liana
 pooch==1.8.2
     # via scikit-image
     # via spatialdata
+pre-commit==4.3.0
+    # via liana
 prometheus-client==0.22.1
     # via jupyter-server
 prompt-toolkit==3.0.51
@@ -636,6 +715,7 @@ pure-eval==0.2.3
     # via stack-data
 pyarrow==21.0.0
     # via dask-expr
+    # via pandas
     # via spatialdata
     # via spatialdata-io
 pyconify==0.2.1
@@ -690,6 +770,8 @@ pyqt5-sip==12.17.0
     # via pyqt5
 pyqtgraph==0.13.7
     # via napari-spatialdata
+pyscipopt==5.5.0
+    # via liana
 python-dateutil==2.9.0.post0
     # via aiobotocore
     # via arrow
@@ -707,6 +789,7 @@ pyyaml==6.0.2
     # via jupyter-events
     # via napari
     # via npe2
+    # via pre-commit
 pyzmq==27.0.0
     # via ipykernel
     # via jupyter-client
@@ -729,8 +812,11 @@ referencing==0.36.2
     # via jupyter-events
 requests==2.32.4
     # via datashader
+    # via decoupler
+    # via gseapy
     # via jupyterlab-server
     # via ome-zarr
+    # via omnipath
     # via pooch
     # via pyconify
     # via sphinx
@@ -763,16 +849,19 @@ s3fs==2025.7.0
     # via fsspec
 scanpy==1.11.3
     # via doubletdetection
+    # via liana
     # via napari-spatialdata
     # via scvi
     # via spatial-seq
     # via spatialdata-io
     # via spatialdata-plot
+    # via squidpy
 scikit-image==0.25.2
     # via napari
     # via ome-zarr
     # via spatialdata
     # via spatialdata-io
+    # via squidpy
 scikit-learn==1.7.1
     # via geosketch
     # via glasbey
@@ -784,19 +873,26 @@ scikit-learn==1.7.1
     # via scanpy
     # via scvi
     # via spatialdata-plot
+    # via squidpy
     # via umap-learn
 scikit-misc==0.5.1
     # via scvi
 scipy==1.15.3
+    # via adjusttext
     # via anndata
     # via dask-image
     # via datashader
+    # via decoupler
     # via doubletdetection
+    # via gseapy
     # via harmonypy
     # via hyperopt
+    # via marsilea
+    # via mizani
     # via napari
     # via napari-spatialdata
     # via phenograph
+    # via plotnine
     # via pynndescent
     # via scanpy
     # via scikit-image
@@ -807,11 +903,13 @@ scipy==1.15.3
 scvi==0.6.8
     # via spatial-seq
 seaborn==0.13.2
+    # via marsilea
     # via scanpy
     # via spatial-seq
 send2trash==1.8.3
     # via jupyter-server
 session-info2==0.1.2
+    # via decoupler
     # via scanpy
 setuptools==80.9.0
     # via jupyterlab
@@ -826,6 +924,7 @@ shapely==2.1.1
 shellingham==1.5.4
     # via typer
 six==1.17.0
+    # via docrep
     # via hyperopt
     # via python-dateutil
     # via rfc3339-validator
@@ -845,6 +944,7 @@ spatialdata==0.4.0
     # via spatial-seq
     # via spatialdata-io
     # via spatialdata-plot
+    # via squidpy
 spatialdata-io==0.2.0
     # via spatialdata
 spatialdata-plot==0.2.10
@@ -863,10 +963,14 @@ sphinxcontrib-qthelp==2.0.0
     # via sphinx
 sphinxcontrib-serializinghtml==2.0.0
     # via sphinx
+squidpy==1.6.5
+    # via spatial-seq
 stack-data==0.6.3
     # via ipython
 statsmodels==0.14.5
+    # via plotnine
     # via scanpy
+    # via squidpy
 superqt==0.7.5
     # via magicgui
     # via napari
@@ -886,6 +990,7 @@ tifffile==2025.6.11
     # via pims
     # via scikit-image
     # via spatialdata-io
+    # via squidpy
 tinycss2==1.4.0
     # via bleach
     # via napari-matplotlib
@@ -909,12 +1014,16 @@ tornado==6.5.1
     # via notebook
     # via terminado
 tqdm==4.67.1
+    # via decoupler
     # via doubletdetection
     # via hyperopt
+    # via liana
     # via napari
+    # via omnipath
     # via scanpy
     # via scvi
     # via spatial-seq
+    # via squidpy
     # via umap-learn
 traitlets==5.14.3
     # via comm
@@ -934,6 +1043,8 @@ traitlets==5.14.3
     # via qtconsole
 triton==3.3.1
     # via torch
+typeguard==4.4.4
+    # via inflect
 typer==0.16.0
     # via npe2
 types-python-dateutil==2.9.0.20250708
@@ -948,6 +1059,7 @@ typing-extensions==4.14.1
     # via magicgui
     # via napari
     # via napari-spatialdata
+    # via omnipath
     # via pint
     # via pydantic
     # via pydantic-core
@@ -957,6 +1069,7 @@ typing-extensions==4.14.1
     # via spatialdata
     # via superqt
     # via torch
+    # via typeguard
     # via typer
     # via typing-inspection
     # via xarray-dataclasses
@@ -974,7 +1087,12 @@ uri-template==1.3.0
     # via jsonschema
 urllib3==2.5.0
     # via botocore
+    # via omnipath
     # via requests
+validators==0.35.0
+    # via squidpy
+virtualenv==20.34.0
+    # via pre-commit
 vispy==0.14.3
     # via napari
     # via napari-spatialdata
@@ -994,12 +1112,14 @@ wrapt==1.17.2
     # via aiobotocore
     # via deprecated
     # via napari
+    # via omnipath
 xarray==2024.11.0
     # via datashader
     # via multiscale-spatial-image
     # via napari-spatialdata
     # via spatial-image
     # via spatialdata
+    # via squidpy
     # via xarray-dataclasses
     # via xarray-datatree
     # via xarray-schema
@@ -1024,3 +1144,4 @@ zarr==2.18.7
     # via multiscale-spatial-image
     # via ome-zarr
     # via spatialdata
+    # via squidpy

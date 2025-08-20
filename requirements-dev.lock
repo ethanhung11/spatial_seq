@@ -34,6 +34,7 @@ anndata==0.12.2
     # via liana
     # via mudata
     # via napari-spatialdata
+    # via pydeseq2
     # via readfcs
     # via scanpy
     # via scvi
@@ -187,6 +188,11 @@ flowio==1.4.0
     # via readfcs
 fonttools==4.59.0
     # via matplotlib
+formulaic==1.2.0
+    # via formulaic-contrasts
+    # via pydeseq2
+formulaic-contrasts==1.0.0
+    # via pydeseq2
 fqdn==1.5.1
     # via jsonschema
 freetype-py==2.5.1
@@ -209,6 +215,8 @@ geopandas==1.1.1
 geosketch==1.3
     # via spatial-seq
 glasbey==0.3.0
+    # via spatial-seq
+gprofiler-official==1.0.0
     # via spatial-seq
 gseapy==1.1.9
     # via spatial-seq
@@ -256,6 +264,8 @@ in-n-out==0.2.1
     # via app-model
 inflect==7.5.0
     # via omnipath
+interface-meta==1.3.0
+    # via formulaic
 ipykernel==6.30.0
     # via jupyter
     # via jupyter-console
@@ -394,11 +404,13 @@ matplotlib==3.10.3
     # via napari-matplotlib
     # via napari-spatialdata
     # via plotnine
+    # via pydeseq2
     # via scanpy
     # via scvi
     # via seaborn
     # via spatialdata-plot
     # via squidpy
+    # via tangram-sc
 matplotlib-inline==0.1.7
     # via ipykernel
     # via ipython
@@ -441,6 +453,8 @@ napari-spatialdata==0.5.6
     # via spatialdata
 napari-svg==0.2.1
     # via napari
+narwhals==2.1.2
+    # via formulaic
 natsort==8.4.0
     # via anndata
     # via scanpy
@@ -496,6 +510,7 @@ numpy==2.2.6
     # via datashader
     # via doubletdetection
     # via flowio
+    # via formulaic
     # via geopandas
     # via geosketch
     # via glasbey
@@ -523,6 +538,7 @@ numpy==2.2.6
     # via phenograph
     # via pims
     # via plotnine
+    # via pydeseq2
     # via pyogrio
     # via pyqtgraph
     # via pyscipopt
@@ -539,6 +555,7 @@ numpy==2.2.6
     # via spatialdata-io
     # via squidpy
     # via statsmodels
+    # via tangram-sc
     # via tifffile
     # via umap-learn
     # via vispy
@@ -630,6 +647,8 @@ pandas==2.3.1
     # via dask-expr
     # via dask-image
     # via datashader
+    # via formulaic
+    # via formulaic-contrasts
     # via geopandas
     # via gseapy
     # via harmonypy
@@ -640,12 +659,14 @@ pandas==2.3.1
     # via napari-spatialdata
     # via omnipath
     # via plotnine
+    # via pydeseq2
     # via scanpy
     # via scvi
     # via seaborn
     # via spatialdata
     # via squidpy
     # via statsmodels
+    # via tangram-sc
     # via xarray
 pandocfilters==1.5.1
     # via nbconvert
@@ -676,6 +697,8 @@ pims==0.7
     # via dask-image
 pint==0.24.4
     # via napari
+pip==25.2
+    # via tangram-sc
 platformdirs==4.3.8
     # via black
     # via jupyter-core
@@ -737,6 +760,8 @@ pydantic-core==2.33.2
     # via pydantic
 pydantic-extra-types==2.10.5
     # via ome-types
+pydeseq2==0.5.2
+    # via spatial-seq
 pygments==2.19.2
     # via ipython
     # via ipython-pygments-lexers
@@ -813,6 +838,7 @@ referencing==0.36.2
 requests==2.32.4
     # via datashader
     # via decoupler
+    # via gprofiler-official
     # via gseapy
     # via jupyterlab-server
     # via ome-zarr
@@ -856,9 +882,11 @@ scanpy==1.11.3
     # via spatialdata-io
     # via spatialdata-plot
     # via squidpy
+    # via tangram-sc
 scikit-image==0.25.2
     # via napari
     # via ome-zarr
+    # via spatial-seq
     # via spatialdata
     # via spatialdata-io
     # via squidpy
@@ -869,11 +897,13 @@ scikit-learn==1.7.1
     # via napari-spatialdata
     # via pacmap
     # via phenograph
+    # via pydeseq2
     # via pynndescent
     # via scanpy
     # via scvi
     # via spatialdata-plot
     # via squidpy
+    # via tangram-sc
     # via umap-learn
 scikit-misc==0.5.1
     # via scvi
@@ -884,6 +914,7 @@ scipy==1.15.3
     # via datashader
     # via decoupler
     # via doubletdetection
+    # via formulaic
     # via gseapy
     # via harmonypy
     # via hyperopt
@@ -893,12 +924,14 @@ scipy==1.15.3
     # via napari-spatialdata
     # via phenograph
     # via plotnine
+    # via pydeseq2
     # via pynndescent
     # via scanpy
     # via scikit-image
     # via scikit-learn
     # via spatialdata
     # via statsmodels
+    # via tangram-sc
     # via umap-learn
 scvi==0.6.8
     # via spatial-seq
@@ -906,8 +939,11 @@ seaborn==0.13.2
     # via marsilea
     # via scanpy
     # via spatial-seq
+    # via tangram-sc
 send2trash==1.8.3
     # via jupyter-server
+session-info==1.0.1
+    # via formulaic-contrasts
 session-info2==0.1.2
     # via decoupler
     # via scanpy
@@ -971,12 +1007,16 @@ statsmodels==0.14.5
     # via plotnine
     # via scanpy
     # via squidpy
+stdlib-list==0.11.1
+    # via session-info
 superqt==0.7.5
     # via magicgui
     # via napari
     # via napari-spatialdata
 sympy==1.14.0
     # via torch
+tangram-sc==1.0.4
+    # via spatial-seq
 terminado==0.18.1
     # via jupyter-server
     # via jupyter-server-terminals
@@ -1006,6 +1046,7 @@ toolz==1.0.0
     # via partd
 torch==2.7.1
     # via scvi
+    # via tangram-sc
 tornado==6.5.1
     # via ipykernel
     # via jupyter-client
@@ -1024,6 +1065,7 @@ tqdm==4.67.1
     # via scvi
     # via spatial-seq
     # via squidpy
+    # via tangram-sc
     # via umap-learn
 traitlets==5.14.3
     # via comm
@@ -1056,6 +1098,7 @@ typing-extensions==4.14.1
     # via beautifulsoup4
     # via flexcache
     # via flexparser
+    # via formulaic
     # via magicgui
     # via napari
     # via napari-spatialdata
@@ -1111,6 +1154,7 @@ widgetsnbextension==4.0.14
 wrapt==1.17.2
     # via aiobotocore
     # via deprecated
+    # via formulaic
     # via napari
     # via omnipath
 xarray==2024.11.0

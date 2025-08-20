@@ -25,6 +25,10 @@ dependencies = [
     "decoupler>=2.1.1",
     "gseapy>=1.1.9",
     "liana>=1.5.1",
+    "tangram-sc>=1.0.4",
+    "pydeseq2>=0.5.2",
+    "scikit-image>=0.25.2",
+    "gprofiler-official>=1.0.0",
 ]
 readme = "README.md"
 requires-python = ">= 3.8"

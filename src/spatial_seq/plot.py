@@ -1,18 +1,18 @@
-import pandas as pd
-import numpy as np
-from glasbey import create_palette
+import spatialdata as sd
+import spatialdata_plot as sdp
 from typing import Iterable
-from scanpy import AnnData
 
-
-def color_gen(groups: pd.Series | Iterable | np.array, custom_index=None):
-    cs = create_palette(palette_size=len(groups.unique()))
-    if custom_index is not None:
-        return pd.Series(cs, index=custom_index)
-    else:
-        return pd.Series(cs, index=groups.unique())
-
-
-def order_obs(adata: AnnData, col: str, order: Iterable[str]):
-    adata.obs[col] = pd.Categorical(adata.obs[col], categories=order, ordered=True)
-    return
+def rasterize_to_plot(sdata:sd.SpatialData, samples:Iterable, sample_col:str, table:str, shapes:Iterable[str]):
+    for n, samp in enumerate(samples):
+        sdata["raster"] = sdata[table][sdata[table].obs[sample_col] == samp].copy()
+        sdata["raster"].X = sdata["raster"].X.tocsc()
+        rasterized = sd.rasterize_bins(
+            sdata,
+            bins=shapes[n],
+            table_name="raster",
+            col_key="array_col",
+            row_key="array_row",
+        )
+        sdata[f"rasterized_{samp}"] = rasterized
+    del sdata["raster"]
+    return sdata

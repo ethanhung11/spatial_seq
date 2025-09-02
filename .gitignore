@@ -13,6 +13,11 @@ plots/
 *.mtx
 *.out
 *.pickle
+*.zip
+
+# R generated files
+.RData
+.Rhistory
 
 # python generated files
 __pycache__/

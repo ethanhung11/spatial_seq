@@ -1,9 +1,11 @@
 # general
+options(max.print = 300)
 library(dplyr)
 library(here)
 
 # single-cell general
 library(BiocParallel)
+library(scRNAseq)
 library(scater)
 library(Seurat)
 library(convert2anndata)
@@ -15,13 +17,45 @@ library(scry)
 library(scDblFinder)
 library(DoubletFinder)
 library("loupeR")
+library(scSHC)
+library(CHOIR)
 
-options(max.print = 300)
+cluster_names <- c('leiden_0.5','leiden_0.6',
+                  'leiden_0.7','leiden_0.8',
+                  'leiden_0.9','leiden_1.0',
+                  'leiden_1.1','leiden_1.2',
+                  'leiden_1.3','leiden_1.4',
+                  'leiden_1.5','leiden')
 
-rds_filename <- "CU048_ConfPositioned_seurat_spatial_merged.rds"
-seurat.obj <- readRDS(file = here("data", "processed", "external", rds_filename))
+savedir <- here("data", "processed", "single cell", "3_annotated", "manDoublet-seuratV3-harmony-annotated.rds")
+seurat.obj <- readRDS(savedir)
+# need UMAP/LocalMAP dim red
+# need nearest neighbors
 
-View(seurat.obj)
+# CHOIR
+inferTree(seurat.obj, )
 
-plot <- SpatialDimPlot(seurat.obj, label = TRUE)
-cropped.coords <- Crop(vizgen.obj[["slice1"]], x = c(1750, 3000), y = c(3750, 5250), coords = "plot")
+
+# scSHC
+tmp <- testClusters(
+  seurat.obj[["RNA"]]@counts,
+  cluster_ids=unlist(seurat.obj[[cluster_names[1]]]),
+  cores=10
+)
+saveRDS(tmp, here("data", "processed", "single cell", "3_annotated", "scSHC-leiden0.5.rds"))
+View(tmp[[1]])
+
+
+
+# library(SeuratData)
+# library(scSHC)
+# AvailableData()
+# data("pbmc3k")
+# pbmc3k <- UpdateSeuratObject(pbmc3k)
+# print(dim(pbmc3k[["RNA"]]$counts))
+# print(length(pbmc3k$seurat_annotations))
+# tmp <- testClusters(
+#   pbmc3k[["RNA"]]$counts,
+#   as.character(pbmc3k$seurat_annotations),
+#   cores=10
+# )

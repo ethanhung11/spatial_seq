@@ -2,6 +2,8 @@ from typing import Iterable, Literal
 from anndata import AnnData
 
 import os
+import numpy as np
+from tqdm import tqdm
 import scanpy as sc
 import liana as li
 import decoupler as dc
@@ -35,6 +37,7 @@ def cell2cell_interactions(
         "mouseconsensus",
     ],
     methods: Iterable = None,
+    filter_results:bool = True,
     cores: int = None,
 ):
     if cores is None:
@@ -72,43 +75,46 @@ def cell2cell_interactions(
         how="left",
     )
 
-    # filter for quality interactions
-    ccc_filters = []
+    if filter_results is True:
+        # filter for quality interactions
+        ccc_filters = []
 
-    # Cell Specificity filters
-    if "cellphone_pvals" in adata.uns[key].columns:  # CellphoneDB
-        ccc_filters.append(adata.uns[key]["cellphone_pvals"] <= 0.05)
-    if "gmean_pvals" in adata.uns[key].columns:  # CellphoneDB V2
-        ccc_filters.append(adata.uns[key]["gmean_pvals"] <= 0.05)
-    if "cellchat_pvals" in adata.uns[key].columns:  # CellChat
-        ccc_filters.append(adata.uns[key]["cellchat_pvals"] <= 0.05)
-    if "lr_logfc" in adata.uns[key].columns:  # log2FC
-        ccc_filters.append(adata.uns[key]["lr_logfc"] > 0)
-    if "scaled_weight" in adata.uns[key].columns:  # Connectome
-        ccc_filters.append(
-            adata.uns[key]["scaled_weight"]
-            > adata.uns[key]["scaled_weight"].quantile(0.95)
-        )
-    if "spec_weight" in adata.uns[key].columns:  # NATMI
-        ccc_filters.append(
-            adata.uns[key]["spec_weight"] > adata.uns[key]["spec_weight"].quantile(0.95)
-        )
+        # Cell Specificity filters
+        if "cellphone_pvals" in adata.uns[key].columns:  # CellphoneDB
+            ccc_filters.append(adata.uns[key]["cellphone_pvals"] <= 0.05)
+        if "gmean_pvals" in adata.uns[key].columns:  # CellphoneDB V2
+            ccc_filters.append(adata.uns[key]["gmean_pvals"] <= 0.05)
+        if "cellchat_pvals" in adata.uns[key].columns:  # CellChat
+            ccc_filters.append(adata.uns[key]["cellchat_pvals"] <= 0.05)
+        if "lr_logfc" in adata.uns[key].columns:  # log2FC
+            ccc_filters.append(adata.uns[key]["lr_logfc"] > 0)
+        if "scaled_weight" in adata.uns[key].columns:  # Connectome
+            ccc_filters.append(
+                adata.uns[key]["scaled_weight"]
+                > adata.uns[key]["scaled_weight"].quantile(0.95)
+            )
+        if "spec_weight" in adata.uns[key].columns:  # NATMI
+            ccc_filters.append(
+                adata.uns[key]["spec_weight"] > adata.uns[key]["spec_weight"].quantile(0.95)
+            )
+        if "specificity_rank" in adata.uns[key].columns:  # Liana (aggregated score)
+            ccc_filters.append(adata.uns[key]["specificity_rank"] <= 0.05)
 
-    # Magnitue filters
-    if "lr_probs" in adata.uns[key].columns:  # CellChat
-        ccc_filters.append(adata.uns[key]["lr_probs"] <= 0.05)
-    if "lrscore" in adata.uns[key].columns:  # SingleCellSignalR
-        ccc_filters.append(adata.uns[key]["lrscore"] > 0.6)
-    if "expr_prod" in adata.uns[key].columns:  # NATMI/Connectome
-        ccc_filters.append(
-            adata.uns[key]["expr_prod"] > adata.uns[key]["expr_prod"].quantile(0.95)
-        )
-    if "magnitude_rank" in adata.uns[key].columns:  # Liana (aggregated score)
-        ccc_filters.append(adata.uns[key]["magnitude_rank"] <= 0.05)
+        # Magnitue filters
+        if "lr_probs" in adata.uns[key].columns:  # CellChat
+            ccc_filters.append(adata.uns[key]["lr_probs"] <= 0.05)
+        if "lrscore" in adata.uns[key].columns:  # SingleCellSignalR
+            ccc_filters.append(adata.uns[key]["lrscore"] > 0.6)
+        if "expr_prod" in adata.uns[key].columns:  # NATMI/Connectome
+            ccc_filters.append(
+                adata.uns[key]["expr_prod"] > adata.uns[key]["expr_prod"].quantile(0.95)
+            )
+        if "magnitude_rank" in adata.uns[key].columns:  # Liana (aggregated score)
+            ccc_filters.append(adata.uns[key]["magnitude_rank"] <= 0.05)
 
-    df = pd.concat(ccc_filters, axis=1)
-    ccc_filter_all = df.all(axis=1)
-    adata.uns[key + "_filtered"] = adata.uns[key][ccc_filter_all].reset_index(drop=True)
+        df = pd.concat(ccc_filters, axis=1)
+        ccc_filter_all = df.all(axis=1)
+        adata.uns[key + "_filtered"] = adata.uns[key][ccc_filter_all].reset_index(drop=True)
 
     return adata
 
@@ -124,8 +130,6 @@ def GO_Enrich(
     # see here for other gprofilier args: https://biit.cs.ut.ee/gprofiler/page/apis
 
     GO_enrichments = {}
-    for src in sources:
-        GO_enrichments[src] = {}
 
     for category in adata.obs[groupby].unique():
         df = sc.get.rank_genes_groups_df(
@@ -136,6 +140,8 @@ def GO_Enrich(
             log2fc_min=log2fc_min,
         )
         for src in sources:
+            if src not in GO_enrichments:
+                GO_enrichments[src] = {}
             GO_enrichments[src][category] = sc.queries.enrich(
                 df.names.to_list(),
                 org="mmusculus",
@@ -200,29 +206,18 @@ def GSEA_gseapy(
 ):
     if len(adata.obs[groupby].unique()) < 2:
         return ValueError(f"Group '{groupby}' does not have at least 2 groups!")
-
-    elif len(adata.obs[groupby].unique()) == 2:
-
-        out = GSEA_gseapy_helper(
-            adata,
-            genesets,
-            method,
-            groupby,
-            adata.obs[groupby].unique()[1],
-            threads,
-            seed,
-            **kwargs,
-        )
-        gsea_results = out.res2d
-        names = gsea_results["Term"].str.split("__", expand=True)
-        gsea_results["Collection"] = names[0]
-        gsea_results["Term"] = names[1]
-
+    
     else:
         gsea_results = {}
-        for group in adata.obs[groupby].unique():
+        for group in tqdm(adata.obs[groupby].unique()):
+            # reorder group to be first
+            first_idx = np.where(adata.obs[groupby] == group)[0][0]
+            order = np.arange(np.shape(adata)[0])
+            order[first_idx], order[0] = order[0], order[first_idx]
+            tmp = adata[order]
+
             out = GSEA_gseapy_helper(
-                adata,
+                tmp,
                 genesets,
                 method,
                 groupby,
@@ -262,10 +257,12 @@ def GSEA_gseapy_helper(
             permutation_num=100,
         )
     elif method == "gsea":
+        class_vector = adata.obs[groupby] == group
+        assert class_vector[0] == True
         out = gp.gsea(
             data=adata.to_df().T,
             gene_sets=genesets,
-            cls=adata.obs[groupby],
+            cls=class_vector.to_list(),
             threads=threads,
             seed=seed,
             permutation_num=100,

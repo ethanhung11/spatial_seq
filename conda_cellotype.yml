@@ -1,0 +1,19 @@
+
+name: cellotype
+channels:
+  - pytorch
+  - nvidia
+  - conda-forge
+dependencies:
+  - python=3.8
+  - pytorch=1.9.0=py3.8_cuda11.1_cudnn8.0.5_0
+  - torchvision=0.10.0
+  - cudatoolkit=11.1
+  - pip
+  - git
+  - mkl=2021.4.0
+  - pip:
+    - cellotype
+
+# mamba env create -f conda_cellotype.yml
+# mamba env update -f conda_cellotype.yml

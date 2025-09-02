@@ -7,7 +7,7 @@ authors = [
 ]
 dependencies = [
     "spatialdata[extra]>=0.4.0",
-    "scanpy[louvain, leiden]>=1.11.2",
+    "scanpy[leiden]>=1.11.2",
     "seaborn>=0.13.2",
     "pacmap==0.8.0",
     "glasbey>=0.3.0",
@@ -23,12 +23,16 @@ dependencies = [
     "anndata>=0.12.2",
     "squidpy>=1.6.5",
     "decoupler>=2.1.1",
-    "gseapy>=1.1.9",
     "liana>=1.5.1",
     "tangram-sc>=1.0.4",
     "pydeseq2>=0.5.2",
     "scikit-image>=0.25.2",
     "gprofiler-official>=1.0.0",
+    "louvain>=0.8.2",
+    "gseapy>=1.1.9",
+    "plotnine>=0.15.0",
+    "celltypist>=1.7.1",
+    "pycirclize>=1.10.0",
 ]
 readme = "README.md"
 requires-python = ">= 3.8"

@@ -4,6 +4,7 @@ data/
 references/
 tutorials/
 Rplots.pdf
+plots/
 
 *.cloupe
 *.gz

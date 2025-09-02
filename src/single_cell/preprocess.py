@@ -424,13 +424,8 @@ def Cluster(
     resolutions:Iterable=np.arange(5, 16) / 10,
     obsm_key:str="integrated",
     neighbor_key:str="neighbors",
-    uns_key:str="silhouette",
 ):
     X = adata.obsm[obsm_key]
-
-    if uns_key not in adata.uns:
-        adata.uns[f"{uns_key}_avg"] = {}
-        adata.uns[f"{uns_key}_scores"] = {}
 
     for res in tqdm(resolutions):
         sc.tl.leiden(
@@ -438,13 +433,6 @@ def Cluster(
             resolution=res,
             neighbors_key=neighbor_key,
             key_added=f"{obs_key}_{res}",
-        )
-        cluster_labels = adata.obs[f"{obs_key}_{res}"].astype("category").cat.codes
-        adata.uns[f"{uns_key}_avg"][f"{obs_key}_{res}"] = silhouette_score(
-            X, cluster_labels
-        )
-        adata.uns[f"{uns_key}_scores"][f"{obs_key}_{res}"] = silhouette_samples(
-            X, cluster_labels
         )
 
     return adata

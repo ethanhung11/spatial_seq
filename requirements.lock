@@ -65,12 +65,16 @@ attrs==25.3.0
     # via referencing
 babel==2.17.0
     # via sphinx
+biopython==1.85
+    # via pycirclize
 botocore==1.38.46
     # via aiobotocore
 build==1.2.2.post1
     # via npe2
 cachey==0.2.1
     # via napari
+celltypist==1.7.1
+    # via spatial-seq
 certifi==2025.7.14
     # via napari
     # via pyogrio
@@ -83,6 +87,7 @@ cfgv==3.4.0
 charset-normalizer==3.4.2
     # via requests
 click==8.2.1
+    # via celltypist
     # via dask
     # via napari-spatialdata
     # via spatialdata
@@ -273,6 +278,7 @@ legacy-api-wrap==1.4.1
 legendkit==0.3.6
     # via marsilea
 leidenalg==0.10.2
+    # via celltypist
     # via phenograph
     # via scanpy
 liana==1.5.1
@@ -285,7 +291,7 @@ locket==1.0.0
 loguru==0.7.3
     # via napari-spatialdata
 louvain==0.8.2
-    # via scanpy
+    # via spatial-seq
 magicgui==0.10.1
     # via napari
 markdown-it-py==3.0.0
@@ -305,6 +311,7 @@ matplotlib==3.10.3
     # via napari-matplotlib
     # via napari-spatialdata
     # via plotnine
+    # via pycirclize
     # via pydeseq2
     # via scanpy
     # via scvi
@@ -386,6 +393,8 @@ numcodecs==0.15.1
 numpy==2.2.6
     # via adjusttext
     # via anndata
+    # via biopython
+    # via celltypist
     # via colorspacious
     # via contourpy
     # via dask
@@ -420,6 +429,7 @@ numpy==2.2.6
     # via phenograph
     # via pims
     # via plotnine
+    # via pycirclize
     # via pydeseq2
     # via pyogrio
     # via pyqtgraph
@@ -489,6 +499,7 @@ ome-zarr==0.11.1
 omnipath==1.0.12
     # via squidpy
 openpyxl==3.1.5
+    # via celltypist
     # via spatial-seq
 packaging==25.0
     # via anndata
@@ -517,6 +528,7 @@ pacmap==0.8.0
     # via spatial-seq
 pandas==2.3.1
     # via anndata
+    # via celltypist
     # via dask
     # via dask-expr
     # via dask-image
@@ -532,6 +544,7 @@ pandas==2.3.1
     # via napari-spatialdata
     # via omnipath
     # via plotnine
+    # via pycirclize
     # via pydeseq2
     # via scanpy
     # via scvi
@@ -577,6 +590,7 @@ platformdirs==4.3.8
     # via virtualenv
 plotnine==0.15.0
     # via liana
+    # via spatial-seq
 pooch==1.8.2
     # via scikit-image
     # via spatialdata
@@ -605,6 +619,8 @@ pyarrow==21.0.0
     # via pandas
     # via spatialdata
     # via spatialdata-io
+pycirclize==1.10.0
+    # via spatial-seq
 pyconify==0.2.1
     # via superqt
 pycparser==2.22
@@ -691,6 +707,7 @@ referencing==0.36.2
     # via jsonschema
     # via jsonschema-specifications
 requests==2.32.4
+    # via celltypist
     # via datashader
     # via decoupler
     # via gprofiler-official
@@ -720,6 +737,7 @@ rpy2-robjects==3.6.1
 s3fs==2025.7.0
     # via fsspec
 scanpy==1.11.3
+    # via celltypist
     # via doubletdetection
     # via liana
     # via napari-spatialdata
@@ -737,6 +755,7 @@ scikit-image==0.25.2
     # via spatialdata-io
     # via squidpy
 scikit-learn==1.7.1
+    # via celltypist
     # via geosketch
     # via glasbey
     # via harmonypy

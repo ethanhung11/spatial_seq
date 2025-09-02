@@ -14,6 +14,17 @@ from spatialdata_io import visium_hd
 import rpy2.robjects as ro
 from single_cell.R import R_preload, get_converter
 
+
+def clear_uns(adata: AnnData, search: str):
+    for i in pd.Series(adata.uns.keys()):
+        if search in i:
+            del adata.uns[i]
+
+def clear_obsm(adata: AnnData, search: str):
+    for i in pd.Series(adata.obsm.keys()):
+        if search in i:
+            del adata.obsm[i]
+
 def clean_string(s):
     return re.sub(r"[^a-zA-Z0-9._-]", "_", s)
 

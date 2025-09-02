@@ -9,5 +9,4 @@ dependencies:
   - pip:
     - git+https://github.com/broadinstitute/CellBender.git@4334e8966217c3591bf7c545f31ab979cdc6590d
 
-# conda env update --file conda_cellbender.yml --prune
-# mamba update -f conda_cellbender.yml
+# mamba env create -f conda_cellbender.yml

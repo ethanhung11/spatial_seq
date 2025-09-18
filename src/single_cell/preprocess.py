@@ -13,12 +13,13 @@ from sklearn.metrics import silhouette_samples, silhouette_score
 import rpy2.robjects as ro
 from .R import get_converter
 
+
 def Filter_QC(
     adata: AnnData,
     GenePerCell: int = 250,
     CountPerCell: int = 500,
     CellPerGene: int = 10,
-    verbose: bool = False,
+    verbose: bool = True,
 ):
 
     start = adata.shape[0]
@@ -41,15 +42,18 @@ def Filter_GeneGroup(
     perc_threshold: float = None,
 ):
 
-    # assign mito genes
-    adata.var[key] = adata.var_names.str.startswith(marker)
+    if key is None:
+        sc.pp.calculate_qc_metrics(adata, inplace=True, percent_top=[20])
+    else:
+        # assign gene group
+        adata.var[key] = adata.var_names.str.startswith(marker)
 
-    # calculate & save metrics
-    sc.pp.calculate_qc_metrics(
-        adata, qc_vars=[key], inplace=True, percent_top=[20], log1p=True
-    )
-    remove = [f"total_counts_{key}", f"log1p_total_counts_{key}"]
-    adata.obs = adata.obs.loc[:, ~adata.obs.columns.isin(remove)]
+        # calculate & save metrics
+        sc.pp.calculate_qc_metrics(
+            adata, qc_vars=key, inplace=True, percent_top=[20], log1p=True
+        )
+        remove = [f"total_counts_{key}", f"log1p_total_counts_{key}"]
+        adata.obs = adata.obs.loc[:, ~adata.obs.columns.isin(remove)]
 
     # filter
     if perc_threshold is not None:
@@ -404,29 +408,37 @@ def Integrate(
     return adata
 
 
-
-def Visualize(adata:AnnData, key:str="", use_rep:str="integrated", neighbor_key:str=None):
+def Visualize(
+    adata: AnnData,
+    key: str = "",
+    use_rep: str = "integrated",
+    neighbor_key: str = None,
+    LocalMAP=True,
+):
     print("Starting UMAP...")
     sc.pp.neighbors(adata, use_rep=use_rep, key_added=neighbor_key)
     sc.tl.umap(adata, key_added=f"UMAP{key}", neighbors_key=neighbor_key)
 
     # LocalMAP
-    print("Starting LocalMAP...")
-    lm = LocalMAP()
-    adata.obsm[f"LocalMAP{key}"] = lm.fit_transform(adata.obsm["integrated"])
+    if LocalMAP is True:
+        print("Starting LocalMAP...")
+        lm = LocalMAP()
+        if use_rep == "integrated":
+            adata.obsm[f"LocalMAP{key}"] = lm.fit_transform(adata.obsm[use_rep])
+        elif use_rep is not None:
+            adata.obsm[f"LocalMAP{key}"] = lm.fit_transform(adata.layers[use_rep])
+        else:
+            adata.obsm[f"LocalMAP{key}"] = lm.fit_transform(adata.X)
 
     return adata
 
 
 def Cluster(
-    adata:AnnData,
-    obs_key:str="leiden",
-    resolutions:Iterable=np.arange(5, 16) / 10,
-    obsm_key:str="integrated",
-    neighbor_key:str="neighbors",
+    adata: AnnData,
+    obs_key: str = "leiden",
+    resolutions: Iterable = np.arange(5, 16) / 10,
+    neighbor_key: str = "neighbors",
 ):
-    X = adata.obsm[obsm_key]
-
     for res in tqdm(resolutions):
         sc.tl.leiden(
             adata,
@@ -439,7 +451,7 @@ def Cluster(
 
 
 def Silhouette(
-    adata:AnnData,
+    adata: AnnData,
     obsm_key="integrated",
     obs_key="leiden",
     uns_key="silhouette",
@@ -453,5 +465,5 @@ def Silhouette(
 
     adata.uns[f"{uns_key}_avg"][obs_key] = silhouette_score(X, cluster_labels)
     adata.uns[f"{uns_key}_scores"][obs_key] = silhouette_samples(X, cluster_labels)
-    
+
     return adata

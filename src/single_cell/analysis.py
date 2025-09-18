@@ -37,7 +37,7 @@ def cell2cell_interactions(
         "mouseconsensus",
     ],
     methods: Iterable = None,
-    filter_results:bool = True,
+    filter_results: bool = True,
     cores: int = None,
 ):
     if cores is None:
@@ -95,7 +95,8 @@ def cell2cell_interactions(
             )
         if "spec_weight" in adata.uns[key].columns:  # NATMI
             ccc_filters.append(
-                adata.uns[key]["spec_weight"] > adata.uns[key]["spec_weight"].quantile(0.95)
+                adata.uns[key]["spec_weight"]
+                > adata.uns[key]["spec_weight"].quantile(0.95)
             )
         if "specificity_rank" in adata.uns[key].columns:  # Liana (aggregated score)
             ccc_filters.append(adata.uns[key]["specificity_rank"] <= 0.05)
@@ -114,7 +115,9 @@ def cell2cell_interactions(
 
         df = pd.concat(ccc_filters, axis=1)
         ccc_filter_all = df.all(axis=1)
-        adata.uns[key + "_filtered"] = adata.uns[key][ccc_filter_all].reset_index(drop=True)
+        adata.uns[key + "_filtered"] = adata.uns[key][ccc_filter_all].reset_index(
+            drop=True
+        )
 
     return adata
 
@@ -154,7 +157,7 @@ def GO_Enrich(
 def GSEA_decoupler(
     adata: AnnData,
     name: str,
-    type: Literal["ULM", "GSEA", "GSVA", "AUCELL"] = "ULM",
+    type: Literal["ULM", "GSEA", "GSVA", "AUCell"] = "ULM",
     geneset_dir: str = None,
     geneset=None,
     remove_prefix=False,
@@ -206,7 +209,7 @@ def GSEA_gseapy(
 ):
     if len(adata.obs[groupby].unique()) < 2:
         return ValueError(f"Group '{groupby}' does not have at least 2 groups!")
-    
+
     else:
         gsea_results = {}
         for group in tqdm(adata.obs[groupby].unique()):

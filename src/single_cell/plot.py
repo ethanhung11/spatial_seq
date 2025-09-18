@@ -11,19 +11,15 @@ import scanpy as sc
 from glasbey import create_palette
 
 
-
-
 def empty_axs(axs: np.ndarray):
     for rs in axs[:]:
         for ax in rs[:]:
             ax.remove()
     return
 
-
 def order_obs(adata: AnnData, col: str, order: Iterable[str]):
     adata.obs[col] = pd.Categorical(adata.obs[col], categories=order, ordered=True)
     return
-
 
 def color_gen(groups: pd.Series | Iterable | np.array, custom_index=None):
     cs = create_palette(palette_size=len(groups.unique()))
@@ -32,6 +28,43 @@ def color_gen(groups: pd.Series | Iterable | np.array, custom_index=None):
     else:
         return pd.Series(cs, index=groups.unique())
 
+def check_QCPlot(df, value, groupby):
+    sns.set_theme(style="white", rc={"axes.facecolor": (0, 0, 0, 0)})
+
+    g = sns.FacetGrid(
+        df, row=groupby, hue=groupby, aspect=15, height=0.5, palette="tab20"
+    )
+
+    g.map(sns.kdeplot, value, clip_on=False, fill=True, alpha=1, linewidth=1.5)
+    g.map(sns.kdeplot, value, clip_on=False, color="w", lw=2)
+
+    g.map(plt.axhline, y=0, lw=2, clip_on=False)
+
+    def label(x, color, label):
+        ax = plt.gca()
+        ax.text(
+            0,
+            0.2,
+            label,
+            fontweight="bold",
+            color=color,
+            ha="left",
+            va="center",
+            transform=ax.transAxes,
+        )
+
+    g.map(label, value)
+
+    g.figure.subplots_adjust(hspace=-0.6)
+
+    g.set_titles("")
+    g.set(yticks=[], ylabel="")
+    g.despine(bottom=True, left=True)
+
+    for ax in g.axes.flat:
+        ax.axvline(x=df[value].median(), color="r", linestyle="-")
+
+    return g.figure
 
 def check_integration(
     adata: AnnData,
@@ -109,8 +142,7 @@ def check_integration(
 
     return
 
-
-def checkDoublets(
+def check_Doublets(
     adata,
     embedding="X_umap",
     cluster_key="leiden",
@@ -121,7 +153,12 @@ def checkDoublets(
 
     axs = sf[0].subplots(2, 1)
     sc.pl.embedding(
-        adata, basis=embedding, color=cluster_key, ax=axs[0], show=False, palette=create_palette(len(adata.obs[cluster_key].unique()))
+        adata,
+        basis=embedding,
+        color=cluster_key,
+        ax=axs[0],
+        show=False,
+        palette=create_palette(len(adata.obs[cluster_key].unique())),
     )
     sc.pl.embedding(
         adata, basis=embedding, color="n_genes", vmax=7000, ax=axs[1], show=False
@@ -159,20 +196,25 @@ def checkDoublets(
 
     return
 
-
 def plot_violinplot(
     adata,
     markers,
     group: str,
-    f,
+    f=None,
     layer: str = "normalized",
     useStripPlot=True,
+    palette=None,
     bracket_params=None,
     ylabel_size=12,
     xlabel_size=10,
     xlabel_params={"angle": 60, "align": "right"},
 ):
-    axs = f.subplots(len(markers), 1)
+    if f:
+        axs = f.subplots(len(markers), 1)
+    else:
+        f, axs = plt.subplots(
+            len(markers), 1, figsize=(len(adata.obs[group].unique()), len(markers))
+        )
     for n, m in enumerate(markers):
         sc.pl.violin(
             adata,
@@ -183,6 +225,7 @@ def plot_violinplot(
             show=False,
             ax=axs[n],
             stripplot=useStripPlot,
+            palette=palette,
         )
         if n < len(markers) - 1:
             axs[n].set_xlabel("")
@@ -224,8 +267,7 @@ def plot_violinplot(
             )
         axs[-1].set_xlabel(axs[-1].get_xlabel(), labelpad=bracket_params["padding"])
 
-    return
-
+    return f
 
 def plot_cluster_violinplot(
     adata,
@@ -244,12 +286,15 @@ def plot_cluster_violinplot(
 
     for n, cluster in enumerate(clusts):
         cdata = adata[adata.obs[clusters] == cluster]
-        plot_violinplot(cdata, markers, group, sf[0, n], useStripPlot=False)
+        plot_violinplot(
+            cdata, markers, group, sf[0, n], useStripPlot=False, palette=cols.to_list()
+        )
 
         ax = sf[1, n].subplots(1, 1)
         crosstab_pct.loc[cluster][crosstab_pct.loc[cluster] > 0].plot(
             kind="bar", color=cols[crosstab_pct.loc[cluster] > 0], ax=ax
         )
+        ax.set_ylim(top=ax.set_ylim()[1] * 1.2)
         ax.tick_params(axis="x", rotation=0)
         ax.bar_label(
             ax.containers[0],
@@ -262,7 +307,6 @@ def plot_cluster_violinplot(
         sf[0, n].suptitle(f"Cluster {cluster}")
 
     return
-
 
 def plot_cluster_barplots(
     adata,
@@ -295,7 +339,6 @@ def plot_cluster_barplots(
     )
 
     return crosstab_pct
-
 
 def plot_cluster_stackedbarplot(
     adata,
@@ -345,23 +388,24 @@ def plot_cluster_stackedbarplot(
 
     return
 
-
 def plot_cluster_silhouette(
     adata,
     obs_key="leiden",
     figsize=(10, 6),
-    uns_key={"avg" : "silhouette_avg", "score" : "silhouette_scores"},
+    uns_key={"avg": "silhouette_avg", "score": "silhouette_scores"},
 ):
     cluster_labels = adata.obs[obs_key].astype("category").cat.codes
     n_clusters = len(np.unique(cluster_labels))
-    
+
     f, ax = plt.subplots(figsize=figsize)
     y_lower = 10
 
     silhouette_avg = adata.uns[uns_key["avg"]][obs_key]
 
     for i in range(n_clusters):
-        cluster_silhouette_values = adata.uns[uns_key["score"]][obs_key][cluster_labels == i]
+        cluster_silhouette_values = adata.uns[uns_key["score"]][obs_key][
+            cluster_labels == i
+        ]
         cluster_silhouette_values.sort()
 
         size_cluster_i = cluster_silhouette_values.shape[0]
@@ -392,7 +436,6 @@ def plot_cluster_silhouette(
     )
     ax.legend()
     plt.tight_layout()
-
 
 def plot_c2c(
     adata: AnnData,
@@ -527,7 +570,6 @@ def plot_c2c(
 
     return
 
-
 def plot_gsea_dc(
     adata, name, key="score_ulm", group="cell_type", n_markers=5, flip=True, f=None
 ):
@@ -560,7 +602,6 @@ def plot_gsea_dc(
         title=name,
         ax=ax,
     )
-
 
 def plot_go_enrichment(
     df_dict,

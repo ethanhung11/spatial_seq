@@ -134,7 +134,7 @@ deprecated==1.2.18
     # via numcodecs
 distlib==0.4.0
     # via virtualenv
-dnspython==2.7.0
+dnspython==2.8.0
     # via pymongo
 docrep==0.3.2
     # via decoupler
@@ -176,7 +176,7 @@ freetype-py==2.5.1
 frozenlist==1.7.0
     # via aiohttp
     # via aiosignal
-fsspec==2025.7.0
+fsspec==2024.12.0
     # via dask
     # via ome-zarr
     # via s3fs
@@ -217,7 +217,6 @@ idna==3.10
 igraph==0.11.9
     # via leidenalg
     # via louvain
-    # via scanpy
 imagecodecs==2025.3.30
     # via spatialdata-io
 imageio==2.37.0
@@ -280,7 +279,6 @@ legendkit==0.3.6
 leidenalg==0.10.2
     # via celltypist
     # via phenograph
-    # via scanpy
 liana==1.5.1
     # via spatial-seq
 llvmlite==0.44.0
@@ -492,7 +490,7 @@ nvidia-nvjitlink-cu12==12.6.85
     # via torch
 nvidia-nvtx-cu12==12.6.77
     # via torch
-ome-types==0.6.1
+ome-types==0.5.3
     # via spatialdata-io
 ome-zarr==0.11.1
     # via spatialdata
@@ -501,7 +499,7 @@ omnipath==1.0.12
 openpyxl==3.1.5
     # via celltypist
     # via spatial-seq
-packaging==25.0
+packaging==24.2
     # via anndata
     # via build
     # via dask
@@ -601,7 +599,7 @@ prompt-toolkit==3.0.51
 propcache==0.3.2
     # via aiohttp
     # via yarl
-psutil==7.0.0
+psutil==6.1.1
     # via ipykernel
     # via napari
     # via phenograph
@@ -627,19 +625,17 @@ pycparser==2.22
     # via cffi
 pyct==0.5.0
     # via datashader
-pydantic==2.11.7
+pydantic==2.1.1
     # via app-model
     # via napari
     # via npe2
     # via ome-types
     # via pydantic-compat
-    # via pydantic-extra-types
 pydantic-compat==0.1.2
     # via app-model
-pydantic-core==2.33.2
-    # via pydantic
-pydantic-extra-types==2.10.5
     # via ome-types
+pydantic-core==2.4.0
+    # via pydantic
 pydeseq2==0.5.2
     # via spatial-seq
 pygments==2.19.2
@@ -650,7 +646,7 @@ pygments==2.19.2
     # via rich
     # via sphinx
     # via superqt
-pymongo==4.13.2
+pymongo==4.15.0
     # via hyperopt
 pynndescent==0.5.13
     # via scanpy
@@ -734,9 +730,9 @@ rpy2-rinterface==3.6.1
     # via rpy2-robjects
 rpy2-robjects==3.6.1
     # via rpy2
-s3fs==2025.7.0
+s3fs==2024.12.0
     # via fsspec
-scanpy==1.11.3
+scanpy==1.11.4
     # via celltypist
     # via doubletdetection
     # via liana
@@ -941,7 +937,6 @@ typing-extensions==4.14.1
     # via pint
     # via pydantic
     # via pydantic-core
-    # via pydantic-extra-types
     # via referencing
     # via scanpy
     # via spatialdata
@@ -949,11 +944,8 @@ typing-extensions==4.14.1
     # via torch
     # via typeguard
     # via typer
-    # via typing-inspection
     # via xarray-dataclasses
     # via xsdata
-typing-inspection==0.4.1
-    # via pydantic
 tzdata==2025.2
     # via pandas
 tzlocal==5.3.1

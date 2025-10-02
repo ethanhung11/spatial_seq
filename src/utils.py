@@ -1,14 +1,19 @@
 import os
 import re
+import json
+import numpy as np
 import pandas as pd
+from PIL import Image
 from tqdm import tqdm
+from pathlib import Path
 from typing import Iterable
 
 # single cell
 import scanpy as sc
 import spatialdata as sd
 import spatialdata_plot as sdp  # noqa: F401
-from spatialdata_io import visium_hd
+import spatialdata_io
+from spatialdata_io._constants._constants import VisiumHDKeys
 
 # R
 import rpy2.robjects as ro
@@ -130,19 +135,86 @@ def GetSingleCellData(
     return adatas
 
 
+def read_visium_hd_segmented(
+    outs_path: str,
+    sample_id: str,
+    shapes_name: str = ["cell_segmentation"],
+) -> sd.models.TableModel:
+    outs_path = Path(outs_path)
+    bin_size = "segmented_outputs"
+    path_bin = outs_path / bin_size
+    path_bin_spatial = path_bin / VisiumHDKeys.SPATIAL
+
+    # Load gene expression
+    counts_file = "raw_feature_cell_matrix.h5"
+    adata = sc.read_10x_h5(path_bin / counts_file, gex_only=False)
+    adata.var_names_make_unique()
+
+    # Load scalefactors and images
+    with open(path_bin_spatial / VisiumHDKeys.SCALEFACTORS_FILE) as f:
+        scalefactors = json.load(f)
+
+    hires_img = np.array(Image.open(path_bin_spatial / "tissue_hires_image.png"))
+    lowres_img = np.array(Image.open(path_bin_spatial / "tissue_lowres_image.png"))
+
+    library_id = "visium_hd_segmentation"
+    adata.uns["spatial"] = {
+        library_id: {
+            "images": {
+                "hires": hires_img,
+                "lowres": lowres_img,
+            },
+            "scalefactors": scalefactors,
+            "metadata": {"source_image_path": "tissue_hires_image.png"},
+        }
+    }
+
+    # Assign region info
+    adata.obs[VisiumHDKeys.INSTANCE_KEY] = np.arange(len(adata))
+    adata.obs[VisiumHDKeys.REGION_KEY] = shapes_name[0]
+    adata.obs[VisiumHDKeys.REGION_KEY] = adata.obs[VisiumHDKeys.REGION_KEY].astype(
+        "category"
+    )
+
+    # Load cell shapes
+    shapes = spatialdata_io.geojson(
+        outs_path / "segmented_outputs" / "cell_segmentations.geojson",
+        coordinate_system=sample_id,
+    )
+
+    # Match shape order to adata
+    centroids = shapes.geometry.centroid
+    adata.obsm["spatial"] = np.vstack([centroids.x.values, centroids.y.values]).T
+
+    # Estimate spot diameter
+    areas = shapes.geometry.area
+    mean_area = np.mean(areas)
+    diameter_pixels = 2 * np.sqrt(mean_area / np.pi)
+    adata.uns["spatial"][library_id]["scalefactors"][
+        "spot_diameter_fullres"
+    ] = diameter_pixels
+
+    return sd.models.TableModel.parse(
+        adata=adata,
+        region=shapes_name,
+        region_key=str(VisiumHDKeys.REGION_KEY),
+        instance_key=str(VisiumHDKeys.INSTANCE_KEY),
+    )
+
+
 def GetSpatialData(
-    directory: str,
-    savedir: str,
+    directory: Path,
+    savedir: Path,
     intermediate_path: str = "outs",
     exclude: Iterable = [],
-    overwrite: bool = True,
-    get_sdata: bool = True,
-    get_custom_barcodes: bool = True,
+    from_scratch: bool = True,
+    overwrite: bool = False,
+    get_custom_barcodes: bool = False,
     **kwargs,
 ):
     """
     Gets all spatial data from a directory.
-    **kwargs are sent to `spatialdata_io.visium_hd()`
+    `**kwargs` are sent to `spatialdata_io.visium_hd()`
     Run sdatas = sd.concatenate(sdatas, concatenate_tables=True) to concatenate
     """
     sdatas = {}
@@ -152,25 +224,17 @@ def GetSpatialData(
         samples.remove(s)
 
     for n, sample in tqdm(enumerate(samples)):
-        print(sample)
+        savefile = savedir / sample / "object.zarr"
+        outs_dir = directory / sample / intermediate_path
 
-        savefile = os.path.join(savedir, sample, "object.zarr")
-
-        if get_sdata is True:
-            if overwrite is True:
-                sdata = visium_hd(
-                    os.path.join(directory, sample, intermediate_path),
-                    dataset_id=sample,
-                    load_all_images=True,
-                    var_names_make_unique=True,
-                )
-                sdata.write(savefile, overwrite=overwrite, **kwargs)
-
-            #
-            sdata = sd.read_zarr(savefile)
-            for table in sdata.tables.values():
-                table.obs["Identifier"] = sample
-                table.layers["counts"] = table.X
+        if from_scratch is True:
+            sdata = spatialdata_io.visium_hd(
+                outs_dir,
+                dataset_id=sample,
+                load_all_images=True,
+                var_names_make_unique=True,
+                **kwargs,
+            )
 
             # rename shapes
             for img_name in ["cytassist_image", "hires_image", "lowres_image"]:
@@ -190,21 +254,44 @@ def GetSpatialData(
                     "region"
                 ] = f"SHAPE_square_{bin_size}um"
 
-            sdatas[sample] = sdata
+            # add segmentation information
+            sdata["nucleus_segmentation"] = spatialdata_io.geojson(
+                outs_dir / "segmented_outputs" / "nucleus_segmentations.geojson",
+                coordinate_system=sample,
+            ).rename_axis("location_id")
+
+            sdata["cell_segmentation"] = spatialdata_io.geojson(
+                outs_dir / "segmented_outputs" / "cell_segmentations.geojson",
+                coordinate_system=sample,
+            ).rename_axis("location_id")
+
+            sdata[f"segmented_bins"] = read_visium_hd_segmented(
+                outs_dir,
+                sample_id=sample,
+                shapes_name=["cell_segmentation"],
+            )
+
+            for table in sdata.tables.values():
+                table.obs["Identifier"] = sample
+                table.layers["counts"] = table.X
+
+            if overwrite is True:
+                sdata.write(savefile)
+                sdata = sd.read_zarr(savefile)
+        else:
+            sdata = sd.read_zarr(savefile)
+
+        sdatas[sample] = sdata
 
         if get_custom_barcodes is True:
-            spatial_barcode_subsets = os.listdir(os.path.join(savedir, sample))
+            spatial_barcode_subsets = savedir / sample
             barcodes[sample] = {}
             for csv in spatial_barcode_subsets:
                 if ".csv" in csv:
-                    barcodes[sample][csv] = pd.read_csv(
-                        os.path.join(savedir, sample, csv)
-                    )
+                    barcodes[sample][csv] = pd.read_csv(savedir / sample / csv)
                     barcodes[sample][csv]["Barcode"] = (
                         barcodes[sample][csv]["Barcode"] + f"-{sample}"
                     )
                     barcodes[sample][csv].set_index("Barcode", inplace=True)
-
-    # sdatas = sd.concatenate(sdatas, concatenate_tables=True)
 
     return samples, sdatas, barcodes

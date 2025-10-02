@@ -215,6 +215,10 @@ def plot_violinplot(
         f, axs = plt.subplots(
             len(markers), 1, figsize=(len(adata.obs[group].unique()), len(markers))
         )
+
+    if type(axs) is not np.ndarray:
+        axs = [axs]
+
     for n, m in enumerate(markers):
         sc.pl.violin(
             adata,
@@ -274,12 +278,22 @@ def plot_cluster_violinplot(
     group: str,
     clusters: str,
     markers,
-    f,
+    f=None,
 ):
+    if f is None:
+        f = plt.figure(
+            figsize=(
+                len(adata.obs[clusters].unique())
+                * len(adata.obs[group].unique())
+                * 1.2,
+                len(markers) * 1.2 + 3,
+            ),
+            layout="constrained",
+        )
 
     clusts = adata.obs[clusters].cat.categories
     cols = color_gen(adata.obs[group], adata.obs[group].cat.categories)
-    sf = f.subfigures(2, len(clusts), height_ratios=[4, 1])
+    sf = f.subfigures(2, len(clusts), height_ratios=[len(markers) * 1.2, 3])
 
     crosstab_counts = pd.crosstab(adata.obs[clusters], adata.obs[group])
     crosstab_pct = crosstab_counts.div(crosstab_counts.sum(axis=0), axis=1) * 100
@@ -304,7 +318,7 @@ def plot_cluster_violinplot(
             ],
         )
 
-        sf[0, n].suptitle(f"Cluster {cluster}")
+        sf[0, n].suptitle(cluster, size=10)
 
     return
 

@@ -413,14 +413,14 @@ def Visualize(
     key: str = "",
     use_rep: str = "integrated",
     neighbor_key: str = None,
-    LocalMAP=True,
+    localmap=True,
 ):
     print("Starting UMAP...")
     sc.pp.neighbors(adata, use_rep=use_rep, key_added=neighbor_key)
     sc.tl.umap(adata, key_added=f"UMAP{key}", neighbors_key=neighbor_key)
 
     # LocalMAP
-    if LocalMAP is True:
+    if localmap is True:
         print("Starting LocalMAP...")
         lm = LocalMAP()
         if use_rep == "integrated":

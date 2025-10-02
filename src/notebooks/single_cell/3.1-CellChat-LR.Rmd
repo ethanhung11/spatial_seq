@@ -33,7 +33,7 @@ library(ggalluvial)
 seurat_object <- readRDS(here("data","processed", "single cell", "5_analysis", "annotated.rds"))
 data.input <- seurat_object[["RNA"]]@data # normalized data matrix
 # For Seurat version >= “5.0.0”, get the normalized data via `seurat_object[["RNA"]]$data`
-labels <- seurat_object$cell_type
+labels <- seurat_object[["cell_type_hires"]]
 meta <- data.frame(labels = labels, row.names = names(labels))
 ```
 
@@ -186,21 +186,33 @@ runCellChat <- function(cellchat.obj) {
   return(cellchat.obj)
 }
 
+celltype_colname <- "cell_type_hires"
+
 # LFD
 seurat_object <- readRDS(here("data","processed", "single cell", "5_analysis", "annotated_LFD.rds"))
 data.input <- seurat_object[["RNA"]]@data
-labels <- seurat_object$cell_type
-meta <- data.frame(labels = labels, row.names = names(labels))
-cellchat.LFD <- createCellChat(object = data.input, meta = meta, group.by = "labels")
+meta <- data.frame(seurat_object[[celltype_colname]])
+cellchat.LFD <- createCellChat(object = data.input, meta = meta, group.by = celltype_colname)
 cellchat.LFD <- runCellChat(cellchat.LFD)
 
 # HFD
 seurat_object <- readRDS(here("data","processed", "single cell", "5_analysis", "annotated_HFD.rds"))
 data.input <- seurat_object[["RNA"]]@data
-labels <- seurat_object$cell_type
-meta <- data.frame(labels = labels, row.names = names(labels))
-cellchat.HFD <- createCellChat(object = data.input, meta = meta, group.by = "labels")
+meta <- data.frame(seurat_object[[celltype_colname]])
+cellchat.HFD <- createCellChat(object = data.input, meta = meta, group.by = celltype_colname)
 cellchat.HFD <- runCellChat(cellchat.HFD)
+
+# Combined CellChat object
+object.list <- list(LFD = cellchat.LFD, HFD = cellchat.HFD)
+cellchat <- mergeCellChat(object.list, add.names = names(object.list), cell.prefix = TRUE)
+
+# Similarity by pathway
+cellchat <- computeNetSimilarityPairwise(cellchat, type = "functional")
+cellchat <- netEmbedding(cellchat, type = "functional")
+cellchat <- netClustering(cellchat, type = "functional")
+cellchat <- computeNetSimilarityPairwise(cellchat, type = "structural")
+cellchat <- netEmbedding(cellchat, type = "structural")
+cellchat <- netClustering(cellchat, type = "structural")
 ```
 
 ```{r Individual Plotting, fig.width=20, fig.height=20}
@@ -253,18 +265,6 @@ plotCellChat(cellchat.HFD, "HFD", cells.oi)
 ```
 
 ```{r Comparative Analysis, fig.width=10, fig.heigh=10}
-# # Create grouped CellChat object
-# object.list <- list(LFD = cellchat.LFD, HFD = cellchat.HFD)
-# cellchat <- mergeCellChat(object.list, add.names = names(object.list), cell.prefix = TRUE)
-# 
-# # Similarity by pathway
-# cellchat <- computeNetSimilarityPairwise(cellchat, type = "functional")
-# cellchat <- netEmbedding(cellchat, type = "functional")
-# cellchat <- netClustering(cellchat, type = "functional")
-# cellchat <- computeNetSimilarityPairwise(cellchat, type = "structural")
-# cellchat <- netEmbedding(cellchat, type = "structural")
-# cellchat <- netClustering(cellchat, type = "structural")
-
 # interaction counts
 gg1 <- compareInteractions(cellchat, show.legend = F, group = c(1,2))
 gg2 <- compareInteractions(cellchat, show.legend = F, group = c(1,2), measure = "weight")

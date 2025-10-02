@@ -430,6 +430,52 @@ nichenet_results$celltypes <- celltypes
 saveRDS(nichenet_results, "NicheNet_hires_results.rds")
 ```
 
+```{r}
+nichenet_results <- readRDS(here("data", "processed", "single cell", "5_analysis", "NicheNet_hires_results.rds"))
+
+# make names filename safe
+names(nichenet_results)[3] <- "fibro:Dpp4+-Pi16+ (APC1+2)"
+names(nichenet_results)[5] <- "adipo:mature adipo (AD1+2)"
+names(nichenet_results)[10] <- "macro:unknown"
+nichenet_results$celltypes <- names(nichenet_plots)[2:length(nichenet_plots)]
+
+for (celltype in nichenet_results$celltypes) {
+  savedir <- here("data", "processed", "single cell", "5_analysis", "nichenet", celltype)
+  dir.create(savedir, showWarnings = FALSE)
+  
+  # agnostic plots
+  ggsave(
+    paste0(savedir, "/agnostic-","ligand_qc.jpg"),
+    plot=nichenet_results[[celltype]]$agnostic.plots[[1]],
+    width=5, height=3)
+  ggsave(
+    paste0(savedir, "/agnostic-","results.jpg"),
+    plot=nichenet_results[[celltype]]$agnostic.plots[[2]],
+    width=50, height=10, limitsize = FALSE)
+  
+  # sender-specific plots
+  ggsave(
+    paste0(savedir, "/sender-","ligand_qc.jpg"),
+    plot=nichenet_results[[celltype]]$sender.plots[[1]],
+    width=5, height=3)
+  ggsave(
+    paste0(savedir, "/sender-","results.jpg"),
+    plot=nichenet_results[[celltype]]$sender.plots[[2]],
+    width=50, height=10, limitsize = FALSE)
+  ggsave(
+    paste0(savedir, "/comparison.jpg"),
+    plot=nichenet_results[[celltype]]$sender.plots[[3]],
+    width=10, height=10)
+}
+
+print(nichenet_results$celltypes)
+
+for (celltype in nichenet_results$celltypes) {
+  nichenet_results[[celltype]]$agnostic.plots %>% print()
+  nichenet_results[[celltype]]$sender.plots %>% print()
+}
+```
+
 # Full Interactive NicheNet
 
 ## Run NicheNet

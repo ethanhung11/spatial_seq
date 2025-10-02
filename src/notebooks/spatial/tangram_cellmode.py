@@ -2,8 +2,7 @@ import os
 import pandas as pd
 import tangram as tg
 import scanpy as sc
-import spatialdata as sd
-import spatialdata_plot as sdp
+import numpy as np
 
 if __name__ == "__main__":
     DATADIR = "data"
@@ -42,8 +41,11 @@ if __name__ == "__main__":
     ad_map = tg.map_cells_to_space(
         adata_sc,
         adata_sp,
-        mode="cells",
+        mode="constrained",
+        target_count=adata_sp.obs.cell_count.sum(),
+        density_prior="uniform",
         cluster_label="cell_type",
+        device="cpu",
     )
 
     annotation = "raw_processed-V5 WT_filter70 MAP FULL"

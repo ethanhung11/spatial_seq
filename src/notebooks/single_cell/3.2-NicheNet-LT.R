@@ -28,16 +28,16 @@ nichenet_results <- list(celltypes=celltypes)
 # run NicheNet & plots
 for (celltype in celltypes) {
   print(paste("Beginning cell type:",celltype))
-  
+
   nichenet_results[[celltype]] <- list()
-  
+
   nichenet_results[[celltype]]$nichenet.outs <- runNicheNet(celltype, nichenet.inputs)
-  
+
   nichenet_results[[celltype]]$agnostic.plots <- plotNicheNet_Agnostic(
     nichenet.inputs,
     nichenet_results[[celltype]]$nichenet.outs,
     n_ligands = 40)
-  
+
   nichenet_results[[celltype]]$sender.plots <- plotNicheNet_SenderSpecific(
     nichenet.inputs,
     nichenet_results[[celltype]]$nichenet.outs,

@@ -138,7 +138,7 @@ def GetSingleCellData(
 def read_visium_hd_segmented(
     outs_path: str,
     sample_id: str,
-    shapes_name: str = ["cell_segmentation"],
+    shapes_name: str = ["nucleus_segmentation"],
 ) -> sd.models.TableModel:
     outs_path = Path(outs_path)
     bin_size = "segmented_outputs"
@@ -178,7 +178,7 @@ def read_visium_hd_segmented(
 
     # Load cell shapes
     shapes = spatialdata_io.geojson(
-        outs_path / "segmented_outputs" / "cell_segmentations.geojson",
+        outs_path / "segmented_outputs" / f"{shapes_name}.geojson",
         coordinate_system=sample_id,
     )
 

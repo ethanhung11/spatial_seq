@@ -1,3 +1,3 @@
 # spatial-seq
 
-Describe your project here.
+`CC=$(which gcc) CXX=$(which g++) rye [cmd]`

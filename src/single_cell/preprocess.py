@@ -8,6 +8,7 @@ import scanpy.external as sce
 import scvi
 from doubletdetection import BoostClassifier
 from pacmap import LocalMAP
+import bbknn
 from tqdm import tqdm
 from sklearn.metrics import silhouette_samples, silhouette_score
 import rpy2.robjects as ro
@@ -325,7 +326,7 @@ def Integrate(
     adata: AnnData,
     batch_column: str,
     use_var_genes: bool = True,
-    kind: Literal["harmony", "scvi", "seurat"] = "harmony",
+    kind: Literal["harmony", "bbknn", "scvi", "seurat"] = "harmony",
     **kwargs,
 ) -> AnnData:
 
@@ -344,6 +345,10 @@ def Integrate(
             adjusted_basis="integrated",
             **kwargs,
         )
+
+    elif kind == "bbknn":
+        sc.pp.pca(adata, use_highly_variable=use_var_genes, layer="normalized")
+        bbknn.matrix(adata.obsm['X_pca'], adata.obs[batch_column])
 
     elif kind == "scvi":
         if use_var_genes is True:
@@ -404,31 +409,39 @@ def Integrate(
     elif kind == "scanvi":
         raise NotImplementedError
 
-    adata.uns["methods"]["integration"] = kind
+    if adata.uns["methods"]["integration"]:
+        adata.uns["methods"]["integration"].append(kind)
+    else:
+        adata.uns["methods"]["integration"] = [kind]
+        
     return adata
-
 
 def Visualize(
     adata: AnnData,
     key: str = "",
     use_rep: str = "integrated",
     neighbor_key: str = None,
+    neighbor_method: Literal["umap_ann", "bbknn"] = "umap_ann",
     localmap=True,
+    **kwargs
 ):
     print("Starting UMAP...")
-    sc.pp.neighbors(adata, use_rep=use_rep, key_added=neighbor_key)
+    if neighbor_method == "umap_ann":
+        sc.pp.neighbors(adata, use_rep=use_rep, key_added=neighbor_key, **kwargs)
+    elif neighbor_method == "bbknn":
+        sc.external.pp.bbknn(adata, use_rep=use_rep, key_added=neighbor_key, **kwargs)
     sc.tl.umap(adata, key_added=f"UMAP{key}", neighbors_key=neighbor_key)
 
     # LocalMAP
     if localmap is True:
         print("Starting LocalMAP...")
-        lm = LocalMAP()
+        lm = LocalMAP(**kwargs)
         if use_rep == "integrated":
-            adata.obsm[f"LocalMAP{key}"] = lm.fit_transform(adata.obsm[use_rep])
+            adata.obsm[f"LocalMAP{key}"] = lm.fit_transform(adata.obsm[use_rep], init="pca")
         elif use_rep is not None:
-            adata.obsm[f"LocalMAP{key}"] = lm.fit_transform(adata.layers[use_rep])
+            adata.obsm[f"LocalMAP{key}"] = lm.fit_transform(adata.layers[use_rep], init="pca")
         else:
-            adata.obsm[f"LocalMAP{key}"] = lm.fit_transform(adata.X)
+            adata.obsm[f"LocalMAP{key}"] = lm.fit_transform(adata.X, init="pca")
 
     return adata
 

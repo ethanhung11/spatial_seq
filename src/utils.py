@@ -157,7 +157,7 @@ def read_visium_hd_segmented(
     hires_img = np.array(Image.open(path_bin_spatial / "tissue_hires_image.png"))
     lowres_img = np.array(Image.open(path_bin_spatial / "tissue_lowres_image.png"))
 
-    library_id = "visium_hd_segmentation"
+    library_id = sample_id
     adata.uns["spatial"] = {
         library_id: {
             "images": {

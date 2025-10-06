@@ -38,6 +38,7 @@ anndata==0.12.2
     # via readfcs
     # via scanpy
     # via scvi
+    # via spagcn
     # via spatial-seq
     # via spatialdata
     # via spatialdata-io
@@ -210,8 +211,10 @@ hyperopt==0.1.2
 idna==3.10
     # via requests
     # via yarl
-igraph==0.11.9
+igraph==0.10.8
     # via leidenalg
+    # via louvain
+    # via python-igraph
 imagecodecs==2025.8.2
     # via spatialdata-io
 imageio==2.37.0
@@ -283,6 +286,9 @@ locket==1.0.0
     # via partd
 loguru==0.7.3
     # via napari-spatialdata
+louvain==0.8.1
+    # via spagcn
+    # via spatial-seq
 magicgui==0.10.1
     # via napari
 markdown-it-py==4.0.0
@@ -371,6 +377,7 @@ numba==0.62.1
     # via pacmap
     # via pynndescent
     # via scanpy
+    # via spagcn
     # via spatialdata
     # via squidpy
     # via umap-learn
@@ -426,6 +433,7 @@ numpy==2.3.3
     # via scvi
     # via seaborn
     # via shapely
+    # via spagcn
     # via spatial-image
     # via spatialdata
     # via spatialdata-io
@@ -498,6 +506,7 @@ pandas==2.3.3
     # via scanpy
     # via scvi
     # via seaborn
+    # via spagcn
     # via spatialdata
     # via squidpy
     # via statsmodels
@@ -626,6 +635,8 @@ python-dateutil==2.9.0.post0
     # via matplotlib
     # via multiscale-spatial-image
     # via pandas
+python-igraph==0.10.8
+    # via spagcn
 pytz==2025.2
     # via pandas
 pyyaml==6.0.3
@@ -683,6 +694,7 @@ scanpy==1.11.4
     # via liana
     # via napari-spatialdata
     # via scvi
+    # via spagcn
     # via spatial-seq
     # via spatialdata-io
     # via spatialdata-plot
@@ -707,6 +719,7 @@ scikit-learn==1.7.2
     # via pynndescent
     # via scanpy
     # via scvi
+    # via spagcn
     # via spatialdata-plot
     # via squidpy
     # via tangram-sc
@@ -736,6 +749,7 @@ scipy==1.15.3
     # via scanpy
     # via scikit-image
     # via scikit-learn
+    # via spagcn
     # via spatialdata
     # via statsmodels
     # via tangram-sc
@@ -771,6 +785,8 @@ slicerator==1.1.0
     # via pims
 snowballstemmer==3.0.1
     # via sphinx
+spagcn==1.2.7
+    # via spatial-seq
 spatial-image==1.2.3
     # via multiscale-spatial-image
     # via spatialdata
@@ -839,6 +855,7 @@ toolz==1.0.0
     # via partd
 torch==2.8.0
     # via scvi
+    # via spagcn
     # via tangram-sc
 tornado==6.5.2
     # via ipykernel

@@ -33,10 +33,10 @@ dependencies = [
     "spatialdata-io>=0.3.0",
     "napari-spatialdata>=0.5.6",
     "pyqt5>=5.15.11",
-    # "louvain>=0.8.2",
     "pyproj==3.6.1",
     "bbknn>=1.6.0",
-    # 3.7.2 (newest at time of release) causes env error?
+    "spagcn>=1.2.7",
+    "louvain==0.8.2",
 ]
 readme = "README.md"
 requires-python = ">= 3.8"

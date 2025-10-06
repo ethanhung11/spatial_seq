@@ -1,0 +1,13 @@
+name: banksy
+channels:
+  - conda-forge
+  - nodefaults
+dependencies:
+  - python=3.10
+  - jupyter
+  - pip
+  - pip:
+    - banksy-py
+
+# conda env create -f conda_banksy.yml
+# conda env update -f conda_banksy.yml

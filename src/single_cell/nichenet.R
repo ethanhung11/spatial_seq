@@ -1,9 +1,9 @@
 # general
 options(max.print = 300)
 options(stringsAsFactors = FALSE)
-library(tidyverse)
-library(Seurat)
 library(nichenetr)
+library(Seurat)
+library(tidyverse)
 
 prepNicheNet <- function(seurat_object, celltype_col, condition_oi="HFD", condition_reference="LFD", organism="mouse") {
   # Get DBs
@@ -324,11 +324,14 @@ plotNicheNet_SenderSpecific <- function(nichenet.ins, nichenet.outs, n_ligands) 
     mid = median(vis_ligand_lfc), high_color = "red",
     legend_title = "LFC")
   
-  # COMPARISON
-  comparison_plot <- (make_line_plot(ligand_activities = ligand_activities_all,
-                                     potential_ligands = ligand_activities$test_ligand,
-                                     ranking_range=c(1,40)) +
-                        theme(plot.title = element_text(size=11, hjust=0.1, margin=margin(0, 0, -5, 0))))
+  # # COMPARISON
+  # comparison_plot <- make_line_plot(
+  #   ligand_activities = ligand_activities_all,
+  #   potential_ligands = ligand_activities$test_ligand,
+  #   ranking_range=c(1,40)) +
+  #   theme(plot.title = element_text(size=11,
+  #                                   hjust=0.1,
+  #                                   margin=margin(0, 0, -5, 0)))
   
   # COMBINED PLOT
   par(mar=c(0.1,0.1,0.1,0.1))
@@ -364,7 +367,8 @@ plotNicheNet_SenderSpecific <- function(nichenet.ins, nichenet.outs, n_ligands) 
     ggpubr::as_ggplot(ggpubr::get_legend(p_ligand_target)),
     nrow = 1, align = "h", scale=0.5, rel_widths = ratio)
   
-  combined_plot <-  cowplot::plot_grid(figures_without_legend, legends, rel_heights = c(10,5), nrow = 2, align = "hv")
+  combined_plot <- cowplot::plot_grid(figures_without_legend, legends, rel_heights = c(10,5), nrow = 2, align = "hv")
   
-  return(list(ligand_qc=plot(p_hist_lig_activity), result=plot(combined_plot), comparison=plot(comparison_plot)))
+  return(list(ligand_qc=plot(p_hist_lig_activity), result=plot(combined_plot))) #, comparison=plot(comparison_plot)
 }
+

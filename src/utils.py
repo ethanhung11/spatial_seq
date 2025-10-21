@@ -190,9 +190,9 @@ def read_visium_hd_segmented(
     areas = shapes.geometry.area
     mean_area = np.mean(areas)
     diameter_pixels = 2 * np.sqrt(mean_area / np.pi)
-    adata.uns["spatial"][library_id]["scalefactors"][
-        "spot_diameter_fullres"
-    ] = diameter_pixels
+    adata.uns["spatial"][library_id]["scalefactors"]["spot_diameter_fullres"] = (
+        diameter_pixels
+    )
 
     return sd.models.TableModel.parse(
         adata=adata,
@@ -250,9 +250,9 @@ def GetSpatialData(
                 sdata[f"square_{bin_size}um"].uns["spatialdata_attrs"]["region"] = [
                     f"SHAPE_square_{bin_size}um"
                 ]
-                sdata[f"square_{bin_size}um"].obs[
-                    "region"
-                ] = f"SHAPE_square_{bin_size}um"
+                sdata[f"square_{bin_size}um"].obs["region"] = (
+                    f"SHAPE_square_{bin_size}um"
+                )
 
             # add segmentation information
             sdata["nucleus_segmentation"] = spatialdata_io.geojson(

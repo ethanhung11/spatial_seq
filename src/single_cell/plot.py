@@ -17,9 +17,11 @@ def empty_axs(axs: np.ndarray):
             ax.remove()
     return
 
+
 def order_obs(adata: AnnData, col: str, order: Iterable[str]):
     adata.obs[col] = pd.Categorical(adata.obs[col], categories=order, ordered=True)
     return
+
 
 def color_gen(groups: pd.Series | Iterable | np.array, custom_index=None):
     cs = create_palette(palette_size=len(groups.unique()))
@@ -27,6 +29,7 @@ def color_gen(groups: pd.Series | Iterable | np.array, custom_index=None):
         return pd.Series(cs, index=custom_index)
     else:
         return pd.Series(cs, index=groups.unique())
+
 
 def check_QCPlot(df, value, groupby):
     sns.set_theme(style="white", rc={"axes.facecolor": (0, 0, 0, 0)})
@@ -65,6 +68,7 @@ def check_QCPlot(df, value, groupby):
         ax.axvline(x=df[value].median(), color="r", linestyle="-")
 
     return g.figure
+
 
 def check_integration(
     adata: AnnData,
@@ -142,6 +146,7 @@ def check_integration(
 
     return
 
+
 def check_Doublets(
     adata,
     embedding="X_umap",
@@ -196,10 +201,11 @@ def check_Doublets(
 
     return
 
+
 def plot_violinplot(
     adata,
-    markers,
     group: str,
+    markers,
     f=None,
     layer: str = "normalized",
     useStripPlot=True,
@@ -273,6 +279,7 @@ def plot_violinplot(
 
     return f
 
+
 def plot_cluster_violinplot(
     adata,
     group: str,
@@ -322,6 +329,7 @@ def plot_cluster_violinplot(
 
     return
 
+
 def plot_cluster_barplots(
     adata,
     group: str,
@@ -353,6 +361,7 @@ def plot_cluster_barplots(
     )
 
     return crosstab_pct
+
 
 def plot_cluster_stackedbarplot(
     adata,
@@ -402,6 +411,7 @@ def plot_cluster_stackedbarplot(
 
     return
 
+
 def plot_cluster_silhouette(
     adata,
     obs_key="leiden",
@@ -450,6 +460,7 @@ def plot_cluster_silhouette(
     )
     ax.legend()
     plt.tight_layout()
+
 
 def plot_c2c(
     adata: AnnData,
@@ -584,6 +595,7 @@ def plot_c2c(
 
     return
 
+
 def plot_gsea_dc(
     adata, name, key="score_ulm", group="cell_type", n_markers=5, flip=True, f=None
 ):
@@ -616,6 +628,7 @@ def plot_gsea_dc(
         title=name,
         ax=ax,
     )
+
 
 def plot_go_enrichment(
     df_dict,

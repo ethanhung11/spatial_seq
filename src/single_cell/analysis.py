@@ -248,7 +248,6 @@ def GSEA_gseapy_helper(
     seed=None,
     **kwargs,
 ):
-
     if method == "prerank":
         df = sc.get.rank_genes_groups_df(adata, group=group, **kwargs)
         ranking = df[["names", "scores"]]

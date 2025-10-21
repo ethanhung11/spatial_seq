@@ -106,7 +106,7 @@ def liana_mouse_resource(
         isMouse = bool(re.search(r"[a-z]", res.iloc[0, 0]))
         if isMouse is True:
             print(
-                f"found lowercase letters in first cell '{res.iloc[0,0]}' of '{name}', not converting!"
+                f"found lowercase letters in first cell '{res.iloc[0, 0]}' of '{name}', not converting!"
             )
         else:
             res = human2mouse(res, map_df)

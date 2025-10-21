@@ -22,7 +22,6 @@ def Filter_QC(
     CellPerGene: int = 10,
     verbose: bool = True,
 ):
-
     start = adata.shape[0]
     sc.pp.filter_cells(adata, min_genes=GenePerCell)
     sc.pp.filter_cells(adata, min_counts=CountPerCell)
@@ -30,7 +29,7 @@ def Filter_QC(
     adata.var_names_make_unique()
     if verbose is True:
         print(
-            f"Cells removed by gene/count filters: {start - adata.shape[0]} ({(start - adata.shape[0])/start*100:.2f}%)"
+            f"Cells removed by gene/count filters: {start - adata.shape[0]} ({(start - adata.shape[0]) / start * 100:.2f}%)"
         )
     return adata
 
@@ -42,7 +41,6 @@ def Filter_GeneGroup(
     verbose: bool = False,
     perc_threshold: float = None,
 ):
-
     if key is None:
         sc.pp.calculate_qc_metrics(adata, inplace=True, percent_top=[20])
     else:
@@ -61,7 +59,7 @@ def Filter_GeneGroup(
         thresholded = adata.obs[f"pct_counts_{key}"] <= perc_threshold
         if verbose is True:
             print(
-                f"Cells with >{perc_threshold}% {key} genes: {adata.shape[0]-np.sum(thresholded)} ({(adata.shape[0]-np.sum(thresholded))/adata.shape[0]*100:.2f}%)"
+                f"Cells with >{perc_threshold}% {key} genes: {adata.shape[0] - np.sum(thresholded)} ({(adata.shape[0] - np.sum(thresholded)) / adata.shape[0] * 100:.2f}%)"
             )
         adata = adata[thresholded]
 
@@ -76,7 +74,6 @@ def Filter_Doublet(
     remove: bool = True,
     multipletRate: float = 0.075,
 ):
-
     if "methods" not in adata.uns:
         adata.uns["methods"] = {}
 
@@ -260,7 +257,6 @@ def FindVariableGenes(
     batch_column: str = None,
     n_features=2000,
 ) -> AnnData:
-
     print("Finding HVGs...")
 
     if type(adata) is list:
@@ -329,7 +325,6 @@ def Integrate(
     kind: Literal["harmony", "bbknn", "scvi", "seurat"] = "harmony",
     **kwargs,
 ) -> AnnData:
-
     print(f"Integrating by Column {batch_column}: {adata.obs[batch_column].unique()}")
     if use_var_genes is True:
         assert "hvg" in adata.uns
@@ -348,7 +343,7 @@ def Integrate(
 
     elif kind == "bbknn":
         sc.pp.pca(adata, use_highly_variable=use_var_genes, layer="normalized")
-        bbknn.matrix(adata.obsm['X_pca'], adata.obs[batch_column])
+        bbknn.matrix(adata.obsm["X_pca"], adata.obs[batch_column])
 
     elif kind == "scvi":
         if use_var_genes is True:
@@ -409,12 +404,13 @@ def Integrate(
     elif kind == "scanvi":
         raise NotImplementedError
 
-    if adata.uns["methods"]["integration"]:
-        adata.uns["methods"]["integration"].append(kind)
-    else:
+    if "integration" not in adata.uns["methods"]:
         adata.uns["methods"]["integration"] = [kind]
-        
+    else:
+        adata.uns["methods"]["integration"].append(kind)
+
     return adata
+
 
 def Visualize(
     adata: AnnData,
@@ -423,7 +419,7 @@ def Visualize(
     neighbor_key: str = None,
     neighbor_method: Literal["umap_ann", "bbknn"] = "umap_ann",
     localmap=True,
-    **kwargs
+    **kwargs,
 ):
     print("Starting UMAP...")
     if neighbor_method == "umap_ann":
@@ -437,9 +433,13 @@ def Visualize(
         print("Starting LocalMAP...")
         lm = LocalMAP(**kwargs)
         if use_rep == "integrated":
-            adata.obsm[f"LocalMAP{key}"] = lm.fit_transform(adata.obsm[use_rep], init="pca")
+            adata.obsm[f"LocalMAP{key}"] = lm.fit_transform(
+                adata.obsm[use_rep], init="pca"
+            )
         elif use_rep is not None:
-            adata.obsm[f"LocalMAP{key}"] = lm.fit_transform(adata.layers[use_rep], init="pca")
+            adata.obsm[f"LocalMAP{key}"] = lm.fit_transform(
+                adata.layers[use_rep], init="pca"
+            )
         else:
             adata.obsm[f"LocalMAP{key}"] = lm.fit_transform(adata.X, init="pca")
 

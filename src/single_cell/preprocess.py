@@ -26,6 +26,8 @@ def Filter_QC(
     sc.pp.filter_cells(adata, min_genes=GenePerCell)
     sc.pp.filter_cells(adata, min_counts=CountPerCell)
     sc.pp.filter_genes(adata, min_cells=CellPerGene)
+
+    Filter_GeneGroup(adata, key=None, verbose=True)
     adata.var_names_make_unique()
     if verbose is True:
         print(
@@ -206,14 +208,14 @@ def Filter_Doublet(
 
     if remove is True:
         adata.uns["methods"]["doublet_remover"] = method
-        adata.uns["doublets_removed"] = adata.obs["predicted_doublet"].sum()
+        print("doublets removed: ",adata.obs["predicted_doublet"].sum())
         adata = adata[adata.obs["predicted_doublet"] == 0]
 
     else:
         if "doublet_remover" in adata.uns:
-            adata.uns["doublet_remover"].append(method)
+            adata.uns["methods"]["doublet_remover"].append(method)
         else:
-            adata.uns["doublet_remover"] = [method]
+            adata.uns["methods"]["doublet_remover"] = [method]
         adata.obs[f"predicted_doublet-{method}"] = adata.obs["predicted_doublet"]
         adata.obs[f"doublet_score-{method}"] = adata.obs["doublet_score"]
         del adata.obs["predicted_doublet"], adata.obs["doublet_score"]
@@ -233,7 +235,7 @@ def Normalize(
     adata.layers["normalized"] = adata.layers["counts"].copy()
 
     if kind == "log1p":
-        sc.pp.normalize_total(adata, layer="normalized")
+        sc.pp.normalize_total(adata, layer="normalized", target_sum=1e4)
         sc.pp.log1p(adata, layer="normalized")
         adata.uns["methods"]["normalization"] = "log1p"
 

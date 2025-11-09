@@ -40,20 +40,19 @@ def create_cloupe(adata: sc.AnnData):
     with ro.conversion.localconverter(get_converter()):
         R_preload()
         ro.globalenv["sce"] = adata
-        ro.r(
-            """
-        library("loupeR")
-        clust <- as.list(colData(sce)) %>% lapply(as.factor)
-        proj <- lapply(as.list(reducedDims(sce)), function(df) df %>% select(1:2))
+        ro.r(r"library(loupeR)")
+        ro.r(r"clust <- as.list(colData(sce)) %>% lapply(as.factor)")
+        ro.r(r"stopifnot('Projections are not all 2D.' = all(sapply(reducedDims(sce), function(x) is.array(x) && length(dim(x)) == 2)))")
+        ro.r(r"proj = reducedDims(sce)")
 
+        ro.r(r"""
         create_loupe(
             assay(sce, "X"),
             clusters = clust, 
             projections = proj,
             output_name = "output",
         )
-        """
-        )
+        """)
 
 
 def GetSingleCellDataDIRECT(directory: str, name: str, filetype: str):
@@ -295,3 +294,15 @@ def GetSpatialData(
                     barcodes[sample][csv].set_index("Barcode", inplace=True)
 
     return samples, sdatas, barcodes
+
+def concat_spatial(x, y, ref_x, ref_y, offset_x=0, offset_y=0, mode="perc"):
+    """
+    Offsets starting from bottom right corner (Xmax, Ymin).
+    Default offset is 1 full width of reference to the right of ref_x.
+    """
+
+    if mode == "perc":
+        offset_x *= ref_x.max() - ref_x.min()
+        offset_y *= ref_y.max() - ref_y.min()
+
+    return x - x.min() + ref_x.max() + offset_x, y - y.min() + ref_y.min() + offset_y

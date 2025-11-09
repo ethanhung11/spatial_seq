@@ -16,5 +16,5 @@ dependencies:
   - pip:
     - banksy-py
 
-# conda env create -f conda_banksy.yml
+# conda env create -y -f conda_banksy.yml
 # conda env update -f conda_banksy.yml

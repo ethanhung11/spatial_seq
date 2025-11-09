@@ -1,0 +1,24 @@
+
+
+```{r setup}
+# packages required for Visium HD
+# install.packages("hdf5r")
+# install.packages("arrow")
+library(Seurat)
+library(ggplot2)
+library(patchwork)
+library(dplyr)
+library(here)
+```
+
+```{r load data}
+localdir <- here("data","spaceranger", "LM13969")
+visium_objs <- list()
+for (sample in list.files(path=localdir)) {
+  object <- Load10X_Spatial(data.dir = here(localdir,sample,"outs"), bin.size = c(2, 8, 16))
+  Assays(object)
+  DefaultAssay(object) <- "Spatial.008um"
+  visium_objs[[sample]] <- object
+}
+
+```

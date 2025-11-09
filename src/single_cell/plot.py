@@ -390,7 +390,8 @@ def plot_cluster_stackedbarplot(
         ax.set_ylabel("Cell Count", fontsize=12)
         ax.legend(title=clusters, bbox_to_anchor=(1.05, 1), loc="upper left")
         ax.set_xticklabels(ax.get_xticklabels(), rotation=45, ha="right")
-        ax.bar_label(ax.containers[-1], padding=2)
+        for x, y in enumerate(crosstab_counts.sum(axis=1)):
+            ax.annotate(y, (x, y*1.01), ha='center')
         ax.set_ylim(top=ax.get_ylim()[1] * 1.05)
 
     else:

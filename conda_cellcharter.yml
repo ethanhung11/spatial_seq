@@ -1,0 +1,25 @@
+name: cellcharter
+channels:
+  - conda-forge
+  - pytorch
+  - nvidia
+  - bioconda
+  - nodefaults
+dependencies:
+  - python=3.11
+  - jupyter
+  - scanpy>1.11
+  - anndata>0.12.1
+  - squidpy
+  - pytorch-cuda=12.4
+  - pytorch
+  - torchvision
+  - torchaudio
+  - tqdm
+  - pip
+  - pip:
+    - scvi-tools
+    - cellcharter
+
+# conda env create -y -f conda_cellcharter.yml
+# conda env update -f conda_cellcharter.yml

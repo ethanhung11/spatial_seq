@@ -19,7 +19,6 @@ dependencies = [
     "harmonypy>=0.0.10",
     "doubletdetection>=4.3.0.post1",
     "plotnine>=0.15.0",
-    "scvi>=0.6.8",
     "decoupler>=2.1.1",
     "liana>=1.5.1",
     "tangram-sc>=1.0.4",
@@ -37,7 +36,11 @@ dependencies = [
     "spatialdata-io>=0.3.0",
     "napari-spatialdata>=0.5.6",
     "spagcn>=1.2.7",
+    "pybiomart>=0.2.0",
+    "scvi>=0.6.8",
     "cellcharter>=0.3.5",
+    "banksy-py>=0.0.1",
+    "plotly>=6.4.0",
 ]
 readme = "README.md"
 requires-python = ">= 3.11"

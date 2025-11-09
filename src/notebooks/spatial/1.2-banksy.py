@@ -43,8 +43,8 @@ def concat_spatial(x, y, ref_x, ref_y, offset_x=1, offset_y=0, mode="perc"):
 
 if __name__ == "__main__":
     batch_key = "Identifier"
-    pca_dims = [20]
-    resolutions = [0.7, 1.0]  # clustering resolutions for UMAP
+    pca_dims = [30]
+    resolutions = [0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]  # clustering resolutions for UMAP
 
     # Initialization params
     plot_graph_weights = True

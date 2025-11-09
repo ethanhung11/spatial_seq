@@ -14,5 +14,5 @@ dependencies:
   - pip:
     - cellotype
 
-# conda env create -f conda_cellotype.yml
+# conda env create -y -f conda_cellotype.yml
 # conda env update -f conda_cellotype.yml

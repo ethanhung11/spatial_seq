@@ -26,7 +26,7 @@ if __name__ == "__main__":
     batch_key = "sample"
     pca_dims = [30]
     resolutions = [0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]  # UMAP resolutions
-    lambda_list = [0.2,0.5]  # weight for cell vs neighborhood
+    lambda_list = [0.2, 0.5]  # weight for cell vs neighborhood
 
     # Initialization params
     plot_graph_weights = True
@@ -50,8 +50,14 @@ if __name__ == "__main__":
     # Find median distance to closest neighbours, the median distance will be `sigma`
     nbrs = median_dist_to_nearest_neighbour(adata, key=coord_keys[2])
     banksy_dict = initialize_banksy(
-        adata, coord_keys, k_geom, nbr_weight_decay=nbr_weight_decay,
-        plt_edge_hist=False, plt_nbr_weights=False, plt_agf_angles=False, plt_theta=False,
+        adata,
+        coord_keys,
+        k_geom,
+        nbr_weight_decay=nbr_weight_decay,
+        plt_edge_hist=False,
+        plt_nbr_weights=False,
+        plt_agf_angles=False,
+        plt_theta=False,
     )
 
     # define spatial information

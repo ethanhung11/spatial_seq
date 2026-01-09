@@ -32,6 +32,10 @@ def clear_obsm(adata: sc.AnnData, search: str):
             del adata.obsm[i]
 
 
+def clear_obs(adata, search):
+    adata.obs = adata.obs.loc[:, ~adata.obs.columns.str.contains(search)]
+
+
 def clean_string(s):
     return re.sub(r"[^a-zA-Z0-9._-]", "_", s)
 
@@ -42,17 +46,27 @@ def create_cloupe(adata: sc.AnnData):
         ro.globalenv["sce"] = adata
         ro.r(r"library(loupeR)")
         ro.r(r"clust <- as.list(colData(sce)) %>% lapply(as.factor)")
-        ro.r(r"stopifnot('Projections are not all 2D.' = all(sapply(reducedDims(sce), function(x) is.array(x) && length(dim(x)) == 2)))")
+        ro.r(
+            r"stopifnot('Projections are not all 2D.' = all(sapply(reducedDims(sce), function(x) is.array(x) && length(dim(x)) == 2)))"
+        )
         ro.r(r"proj = reducedDims(sce)")
 
-        ro.r(r"""
+        ro.r(
+            r"""
         create_loupe(
             assay(sce, "X"),
             clusters = clust, 
             projections = proj,
             output_name = "output",
         )
-        """)
+        """
+        )
+
+
+def find_barcodes(strings):
+    pattern = r"[ATCG]{16}"
+    matches = [re.findall(pattern, s) for s in strings]
+    return pd.Series([m for sublist in matches for m in sublist]).astype(str)
 
 
 def GetSingleCellDataDIRECT(directory: str, name: str, filetype: str):
@@ -137,7 +151,7 @@ def GetSingleCellData(
 def read_visium_hd_segmented(
     outs_path: str,
     sample_id: str,
-    shapes_name: str = ["nucleus_segmentation"],
+    shapes_name: str = "cell_segmentations",
 ) -> sd.models.TableModel:
     outs_path = Path(outs_path)
     bin_size = "segmented_outputs"
@@ -170,7 +184,7 @@ def read_visium_hd_segmented(
 
     # Assign region info
     adata.obs[VisiumHDKeys.INSTANCE_KEY] = np.arange(len(adata))
-    adata.obs[VisiumHDKeys.REGION_KEY] = shapes_name[0]
+    adata.obs[VisiumHDKeys.REGION_KEY] = shapes_name
     adata.obs[VisiumHDKeys.REGION_KEY] = adata.obs[VisiumHDKeys.REGION_KEY].astype(
         "category"
     )
@@ -189,9 +203,9 @@ def read_visium_hd_segmented(
     areas = shapes.geometry.area
     mean_area = np.mean(areas)
     diameter_pixels = 2 * np.sqrt(mean_area / np.pi)
-    adata.uns["spatial"][library_id]["scalefactors"]["spot_diameter_fullres"] = (
-        diameter_pixels
-    )
+    adata.uns["spatial"][library_id]["scalefactors"][
+        "spot_diameter_fullres"
+    ] = diameter_pixels
 
     return sd.models.TableModel.parse(
         adata=adata,
@@ -249,9 +263,9 @@ def GetSpatialData(
                 sdata[f"square_{bin_size}um"].uns["spatialdata_attrs"]["region"] = [
                     f"SHAPE_square_{bin_size}um"
                 ]
-                sdata[f"square_{bin_size}um"].obs["region"] = (
-                    f"SHAPE_square_{bin_size}um"
-                )
+                sdata[f"square_{bin_size}um"].obs[
+                    "region"
+                ] = f"SHAPE_square_{bin_size}um"
 
             # add segmentation information
             sdata["nucleus_segmentation"] = spatialdata_io.geojson(
@@ -294,6 +308,7 @@ def GetSpatialData(
                     barcodes[sample][csv].set_index("Barcode", inplace=True)
 
     return samples, sdatas, barcodes
+
 
 def concat_spatial(x, y, ref_x, ref_y, offset_x=0, offset_y=0, mode="perc"):
     """

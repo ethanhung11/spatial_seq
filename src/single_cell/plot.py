@@ -1,14 +1,18 @@
 from typing import Iterable
 from anndata import AnnData
 
-import pandas as pd
+from collections import Counter
+from tqdm import tqdm
 import numpy as np
+import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 import matplotlib as mpl
-import decoupler as dc
-import scanpy as sc
+import plotly.graph_objects as go
 from glasbey import create_palette
+
+import scanpy as sc
+import decoupler as dc
 
 
 def empty_axs(axs: np.ndarray):
@@ -28,7 +32,7 @@ def color_gen(groups: pd.Series | Iterable | np.array, custom_index=None):
     if custom_index is not None:
         return pd.Series(cs, index=custom_index)
     else:
-        return pd.Series(cs, index=groups.unique())
+        return cs
 
 
 def check_QCPlot(df, value, groupby):
@@ -82,6 +86,8 @@ def check_integration(
     print(f"Category {category} has {len(adata.obs[category].unique())} groups!")
 
     sf = f.subfigures(1, len(embeddings))
+    if len(embeddings) == 1:
+        sf = [sf]
     int_colors = color_gen(adata.obs[category], adata.obs[category].cat.categories)
 
     for e, obsm in enumerate(embeddings):
@@ -130,6 +136,8 @@ def check_integration(
                 horizontalalignment="right",
                 verticalalignment="bottom",
             )
+            xlims = ax.get_xlim()
+            ylims = ax.get_ylim()
 
             for n, group in enumerate(adata.obs[category].unique()):
                 ax = sf[e].add_subplot(gs[nrow + n // nrow, n % nrow])
@@ -143,14 +151,16 @@ def check_integration(
                     legend_loc="none",
                 )
                 ax.set_title(group)
+                ax.set_xlim(*xlims)
+                ax.set_ylim(*ylims)
 
     return
 
 
-def check_Doublets(
-    adata,
-    embedding="X_umap",
-    cluster_key="leiden",
+def check_doublets(
+    adata: AnnData,
+    embedding: str="X_umap",
+    cluster_key: str ="leiden",
     doubletMethods=["scDblFinder", "DoubletFinder", "doubletdetection", "scrublet"],
 ):
     f = plt.figure(figsize=(20, 7), layout="constrained")
@@ -203,9 +213,9 @@ def check_Doublets(
 
 
 def plot_violinplot(
-    adata,
+    adata: AnnData,
     group: str,
-    markers,
+    markers: Iterable[str] | dict[str, Iterable[str]],
     f=None,
     layer: str = "normalized",
     useStripPlot=True,
@@ -214,18 +224,26 @@ def plot_violinplot(
     ylabel_size=12,
     xlabel_size=10,
     xlabel_params={"angle": 60, "align": "right"},
+    bracket_fontsize=12,
 ):
+    # Convert markers to flat list for plotting
+    is_dict = isinstance(markers, dict)
+    marker_list = list(markers.values()) if is_dict else [[m] for m in markers]
+    flat_markers = [m for group_markers in marker_list for m in group_markers]
+    
+    # Create subplots
     if f:
-        axs = f.subplots(len(markers), 1)
+        axs = f.subplots(len(flat_markers), 1)
     else:
         f, axs = plt.subplots(
-            len(markers), 1, figsize=(len(adata.obs[group].unique()), len(markers))
+            len(flat_markers), 1, figsize=(len(adata.obs[group].unique()), len(flat_markers))
         )
 
     if type(axs) is not np.ndarray:
         axs = [axs]
 
-    for n, m in enumerate(markers):
+    # Plot violin plots for each marker
+    for n, m in tqdm(enumerate(flat_markers)):
         sc.pl.violin(
             adata,
             m,
@@ -237,11 +255,33 @@ def plot_violinplot(
             stripplot=useStripPlot,
             palette=palette,
         )
-        if n < len(markers) - 1:
+        # Hide x-axis labels and ticks for all but bottom plot
+        if n < len(flat_markers) - 1:
             axs[n].set_xlabel("")
             axs[n].set_xticklabels([""] * len(axs[n].get_xticklabels()))
         axs[n].set_ylabel(axs[n].get_ylabel(), size=ylabel_size)
 
+    # Add left-side brackets for marker sets if markers is a dictionary
+    if is_dict:
+        idx = 0
+        for set_name, set_markers in markers.items():
+            start_ax = axs[idx]
+            end_ax = axs[idx + len(set_markers) - 1]
+            mid_y = (start_ax.get_position().y1 + end_ax.get_position().y0) / 2
+            bracket_x = start_ax.get_position().x0 - 0.08
+            
+            # Add braclets
+            f.text(bracket_x - 0.015, mid_y, set_name, ha='center', va='center', rotation=90, 
+                   transform=f.transFigure, fontsize=bracket_fontsize)
+            f.add_artist(plt.Line2D([bracket_x, bracket_x], [end_ax.get_position().y0, start_ax.get_position().y1], 
+                                    transform=f.transFigure, color='k', linewidth=1))
+            f.add_artist(plt.Line2D([bracket_x, bracket_x + 0.005], [end_ax.get_position().y0, end_ax.get_position().y0], 
+                                    transform=f.transFigure, color='k', linewidth=1))
+            f.add_artist(plt.Line2D([bracket_x, bracket_x + 0.005], [start_ax.get_position().y1, start_ax.get_position().y1], 
+                                    transform=f.transFigure, color='k', linewidth=1))
+            idx += len(set_markers)
+
+    # Format x-axis labels on bottom plot
     axs[-1].set_xticklabels(
         axs[-1].get_xticklabels(),
         size=xlabel_size,
@@ -250,6 +290,7 @@ def plot_violinplot(
         rotation_mode="anchor",
     )
 
+    # Add bottom x-axis brackets if bracket_params provided
     if bracket_params is not None:
         ratios = bracket_params["ratio"] / np.sum(bracket_params["ratio"])
         ends = np.append(0, np.cumsum(ratios))
@@ -257,10 +298,7 @@ def plot_violinplot(
         bar_bracket_widths = ratios * f.get_size_inches()[0] * 3.1
 
         axs = f.get_axes()
-        for (
-            n,
-            label,
-        ) in enumerate(bracket_params["labels"]):
+        for n, label in enumerate(bracket_params["labels"]):
             axs[-1].annotate(
                 label,
                 xy=(bar_label_locs[n], -bracket_params["bracket_y"]),
@@ -277,7 +315,7 @@ def plot_violinplot(
             )
         axs[-1].set_xlabel(axs[-1].get_xlabel(), labelpad=bracket_params["padding"])
 
-    return f
+    return
 
 
 def plot_cluster_violinplot(
@@ -308,7 +346,7 @@ def plot_cluster_violinplot(
     for n, cluster in enumerate(clusts):
         cdata = adata[adata.obs[clusters] == cluster]
         plot_violinplot(
-            cdata, markers, group, sf[0, n], useStripPlot=False, palette=cols.to_list()
+            cdata, group, markers, sf[0, n], useStripPlot=False, palette=cols.to_list()
         )
 
         ax = sf[1, n].subplots(1, 1)
@@ -317,11 +355,12 @@ def plot_cluster_violinplot(
         )
         ax.set_ylim(top=ax.set_ylim()[1] * 1.2)
         ax.tick_params(axis="x", rotation=0)
+
         ax.bar_label(
             ax.containers[0],
             labels=[
                 f"{c:.2f}%\n({crosstab_counts.loc[cluster][n]})"
-                for n, c in enumerate(crosstab_pct.loc[cluster])
+                for n, c in enumerate(crosstab_pct.loc[cluster]) if c > 0
             ],
         )
 
@@ -331,7 +370,7 @@ def plot_cluster_violinplot(
 
 
 def plot_cluster_barplots(
-    adata,
+    adata: AnnData,
     group: str,
     clusters: str,
     f,
@@ -364,7 +403,7 @@ def plot_cluster_barplots(
 
 
 def plot_cluster_stackedbarplot(
-    adata,
+    adata: AnnData,
     groupby: str,
     clusters: str,
     pct: bool = False,
@@ -391,7 +430,7 @@ def plot_cluster_stackedbarplot(
         ax.legend(title=clusters, bbox_to_anchor=(1.05, 1), loc="upper left")
         ax.set_xticklabels(ax.get_xticklabels(), rotation=45, ha="right")
         for x, y in enumerate(crosstab_counts.sum(axis=1)):
-            ax.annotate(y, (x, y*1.01), ha='center')
+            ax.annotate(y, (x, y * 1.01), ha="center")
         ax.set_ylim(top=ax.get_ylim()[1] * 1.05)
 
     else:
@@ -413,9 +452,37 @@ def plot_cluster_stackedbarplot(
     return
 
 
+def plot_cluster_riverplot(clusters_1, clusters_2, prefix_1="", prefix_2="", min_flow=50):
+    flow_counts = Counter(zip(clusters_1, clusters_2))
+    flow_counts = {k: v for k, v in flow_counts.items() if v >= min_flow}
+
+    clusters1 = sorted(set(clusters_1))
+    clusters2 = sorted(set(clusters_2))
+
+    source = [clusters1.index(c1) for c1, c2 in flow_counts]
+    target = [len(clusters1) + clusters2.index(c2) for c1, c2 in flow_counts]
+    value = list(flow_counts.values())
+
+    counts1 = Counter(clusters_1)
+    counts2 = Counter(clusters_2)
+    labels = [f"{prefix_1}{c} ({counts1[c]})" for c in clusters1] + [
+        f"{prefix_2}{c} ({counts2[c]})" for c in clusters2
+    ]
+
+    fig = go.Figure(
+        go.Sankey(
+            node=dict(label=labels, pad=15, thickness=20),
+            link=dict(source=source, target=target, value=value),
+        )
+    )
+
+    fig.update_layout(title=f"Riverplot Comparison of `{clusters_1.name}` and `{clusters_2.name}`", font_size=12)
+    fig.show()
+
+
 def plot_cluster_silhouette(
-    adata,
-    obs_key="leiden",
+    adata: AnnData,
+    obs_key: str="leiden",
     figsize=(10, 6),
     uns_key={"avg": "silhouette_avg", "score": "silhouette_scores"},
 ):
@@ -550,22 +617,17 @@ def plot_c2c(
 
     # Create proper size legend using evenly spaced integer values
     if len(mag_vals) > 0:  # Only create legend if we have data
-        # Create evenly spaced integer thresholds from 1 to max
         max_val = int(np.ceil(mag_vals.max()))
         if max_val <= 1:
             size_labels = ["1"]
         else:
-            # Create 5 evenly spaced integers from 1 to max
             thresholds = np.linspace(1, max_val, 5).astype(int)
-            # Remove duplicates while preserving order
             thresholds = np.array(sorted(set(thresholds)))
             size_labels = [str(t) for t in thresholds]
 
-        # Create legend elements for matplotlib
+        # Create legend elements
         from matplotlib.lines import Line2D
-
         legend_elements = []
-        # Use only the number of sizes we actually have
         for i, label in enumerate(size_labels):
             if i < len(size_bins):
                 size = size_bins[i]

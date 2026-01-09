@@ -1,18 +1,20 @@
 from typing import Literal, List, Iterable
-from anndata import AnnData
-
+from datetime import timedelta
 import numpy as np
 import pandas as pd
+from tqdm import tqdm
+
+from anndata import AnnData
 import scanpy as sc
 import scanpy.external as sce
 import scvi
+import lightning.pytorch as pl
 from doubletdetection import BoostClassifier
 from pacmap import LocalMAP
-import bbknn
-from tqdm import tqdm
 from sklearn.metrics import silhouette_samples, silhouette_score
+
 import rpy2.robjects as ro
-from .R import get_converter
+from .R import get_converter, R_preload
 
 
 def Filter_QC(
@@ -53,8 +55,6 @@ def Filter_GeneGroup(
         sc.pp.calculate_qc_metrics(
             adata, qc_vars=key, inplace=True, percent_top=[20], log1p=True
         )
-        remove = [f"total_counts_{key}", f"log1p_total_counts_{key}"]
-        adata.obs = adata.obs.loc[:, ~adata.obs.columns.isin(remove)]
 
     # filter
     if perc_threshold is not None:
@@ -99,6 +99,7 @@ def Filter_Doublet(
     elif method == "scrublet":
         sc.pp.scrublet(adata)
     elif method == "scDblFinder":
+        R_preload()
         with ro.conversion.localconverter(get_converter()):
             tmp = adata.copy()
             del tmp.uns
@@ -123,6 +124,7 @@ def Filter_Doublet(
             adata.obs["predicted_doublet"] = adata.obs["predicted_doublet"].astype(bool)
             adata.obs["doublet_score"] = ro.globalenv["doublet_score"]
     elif method == "DoubletFinder":
+        R_preload()
         with ro.conversion.localconverter(get_converter()):
             tmp = adata.copy()
             del tmp.uns
@@ -208,7 +210,7 @@ def Filter_Doublet(
 
     if remove is True:
         adata.uns["methods"]["doublet_remover"] = method
-        print("doublets removed: ",adata.obs["predicted_doublet"].sum())
+        print("doublets removed: ", adata.obs["predicted_doublet"].sum())
         adata = adata[adata.obs["predicted_doublet"] == 0]
 
     else:
@@ -278,22 +280,23 @@ def FindVariableGenes(
     elif kind == "seurat_v3" or kind == "seurat_v3_paper":
         sc.pp.highly_variable_genes(
             adata,
+            layer="counts",
             batch_key=batch_column,
             flavor=kind,
-            layer="counts",
             n_top_genes=n_features,
         )
 
     elif kind == "pearson":
         sc.experimental.pp.highly_variable_genes(
             adata,
+            layer="counts",
             batch_key=batch_column,
             flavor=kind,
-            layer="counts",
             n_top_genes=n_features,
         )
 
     elif kind == "deviant":
+        R_preload()
         with ro.conversion.localconverter(get_converter()):
             tmp = adata.copy()
             del tmp.uns
@@ -320,74 +323,102 @@ def FindVariableGenes(
     return adata
 
 
+def PCA(
+    adata: AnnData,
+    gene_mask: str = "highly_variable",
+    key: str = "PCA_hvg",
+    layer: str = "normalized",
+    comp: int = 50,
+) -> AnnData:
+    print(
+        f"Staring PCA with gene mask {gene_mask} at {comp} comps, saved at .obsm[{key}]"
+    )
+
+    sc.pp.pca(adata, n_comps=comp, mask_var=gene_mask, layer=layer, key_added=key)
+    return adata
+
+
 def Integrate(
     adata: AnnData,
     batch_column: str,
-    use_var_genes: bool = True,
-    kind: Literal["harmony", "bbknn", "scvi", "seurat"] = "harmony",
+    gene_mask: str = "highly_variable",
+    pca_key: str = "PCA_hvg",
+    kind: Literal["harmony", "scvi", "scanorama", "seurat"] = "harmony",
+    integration_key: str = "integrated",
+    scvi_params={"save_model": True, "model_directory": None},
     **kwargs,
 ) -> AnnData:
     print(f"Integrating by Column {batch_column}: {adata.obs[batch_column].unique()}")
-    if use_var_genes is True:
+    if gene_mask is not None:
         assert "hvg" in adata.uns
     if "methods" not in adata.uns:
         adata.uns["methods"] = {}
 
-    if kind == "harmony":
-        sc.pp.pca(adata, use_highly_variable=use_var_genes, layer="normalized")
+    elif kind == "harmony":
         sce.pp.harmony_integrate(
             adata,
             key=batch_column,
+            basis=pca_key,
             max_iter_harmony=50,
-            adjusted_basis="integrated",
+            adjusted_basis=integration_key,
             **kwargs,
         )
 
-    elif kind == "bbknn":
-        sc.pp.pca(adata, use_highly_variable=use_var_genes, layer="normalized")
-        bbknn.matrix(adata.obsm["X_pca"], adata.obs[batch_column])
+    elif kind == "scanorama":
+        sce.pp.scanorama_integrate(
+            adata,
+            key=batch_column,
+            basis=pca_key,
+            adjusted_basis=integration_key,
+            **kwargs,
+        )
 
     elif kind == "scvi":
-        if use_var_genes is True:
-            input_adata = adata[:, adata.var["highly_variable"]].copy()
+        if gene_mask is not None:
+            input_adata = adata[:, adata.var[gene_mask]].copy()
         else:
             input_adata = adata.copy()
 
         scvi.model.SCVI.setup_anndata(
             input_adata, layer="counts", batch_key=batch_column
         )
-        model_scvi = scvi.model.SCVI(input_adata)
-        model_scvi.train(early_stopping=True, **kwargs)
-        adata.obsm["integrated"] = model_scvi.get_latent_representation()
+        model = scvi.model.SCVI(input_adata, **kwargs)
+        model.train(
+            accelerator="cpu",
+            strategy=pl.strategies.DDPStrategy(
+                timeout=timedelta(days=2), find_unused_parameters=True
+            ),
+            early_stopping=True,
+        )
+
+        if scvi_params["save_model"] is True:
+            model.save(scvi_params["model_directory"] / "model")
+            input_adata.write(scvi_params["model_directory"] / "input.h5ad")
+
+        adata.obsm[integration_key] = model.get_latent_representation()
 
     elif kind in "seurat":
+        R_preload()
         with ro.conversion.localconverter(get_converter()):
-            assert use_var_genes is True
-
             subset = adata.copy()
             del subset.uns
 
-            if "hvg" in adata.uns:
-                ro.globalenv["sce"] = subset[:, subset.var["highly_variable"]]
-                ro.r(
-                    """
-                    seurat <- as.Seurat(sce,data = NULL)
-                    seurat <- RenameAssays(seurat,"originalexp","RNA")
-                    """
-                )
-            else:
-                ro.globalenv["sce"] = subset
-                ro.r(
-                    """
-                    seurat <- as.Seurat(sce,data = NULL)
-                    seurat <- RenameAssays(seurat,"originalexp","RNA")
-                    seurat <- SCTransform(seurat, vars.to.regress = "pct_counts_mt")
-                        """
-                )
+            ro.globalenv["sce"] = subset
+            ro.r(
+                """
+            seurat <- as.Seurat(sce, data = NULL)
+            seurat <- RenameAssays(seurat, "originalexp", "RNA")
+            counts <- GetAssayData(seurat, slot = "counts")
+            print(counts)
+            seurat <- subset(seurat, cells = colnames(counts)[colSums(counts) > 0])
+            seurat <- subset(seurat, features = rownames(counts)[rowSums(counts) > 0])
+            seurat <- SCTransform(seurat)
+            """
+            )
 
             ro.globalenv["batch_key"] = batch_column
             ro.r(
-                f"""
+                """
             batch_list <- SplitObject(seurat, split.by = batch_key)
             anchors <- FindIntegrationAnchors(batch_list, anchor.features = rownames(seurat))
             integrated <- IntegrateData(anchors)
@@ -397,53 +428,60 @@ def Integrate(
             """
             )
             subset = ro.globalenv["integrated_expr"]
-            sc.pp.pca(subset, use_highly_variable=use_var_genes)
-
-            adata.obsm["integrated"] = subset.obsm["X_pca"]
-            adata.obsm["X_pca"] = subset.obsm["X_pca"]
-            adata.uns["pca"] = subset.uns["pca"]
+            adata.obsm[integration_key] = subset.X
 
     elif kind == "scanvi":
         raise NotImplementedError
 
-    if "integration" not in adata.uns["methods"]:
-        adata.uns["methods"]["integration"] = [kind]
-    else:
-        adata.uns["methods"]["integration"].append(kind)
+    adata.uns["methods"]["integration"] = kind
 
     return adata
 
 
 def Visualize(
     adata: AnnData,
-    key: str = "",
-    use_rep: str = "integrated",
-    neighbor_key: str = None,
+    key: str = None,
+    umap=True,
+    input_key: str = "integrated",
     neighbor_method: Literal["umap_ann", "bbknn"] = "umap_ann",
     localmap=True,
+    show=True,
     **kwargs,
 ):
-    print("Starting UMAP...")
-    if neighbor_method == "umap_ann":
-        sc.pp.neighbors(adata, use_rep=use_rep, key_added=neighbor_key, **kwargs)
-    elif neighbor_method == "bbknn":
-        sc.external.pp.bbknn(adata, use_rep=use_rep, key_added=neighbor_key, **kwargs)
-    sc.tl.umap(adata, key_added=f"UMAP{key}", neighbors_key=neighbor_key)
+    if "methods" not in adata.uns:
+        adata.uns["methods"] = {}
 
-    # LocalMAP
+    if key is None:
+        key = ""
+        neighbor_key = None
+    else:
+        key = "_" + key
+        neighbor_key = "neighbors" + key
+
+    if umap is True:
+        print("Starting UMAP...")
+        if neighbor_method == "umap_ann":
+            sc.pp.neighbors(adata, use_rep=input_key, key_added=neighbor_key, **kwargs)
+        elif neighbor_method == "bbknn":
+            sc.external.pp.bbknn(
+                adata, use_rep=input_key, key_added=neighbor_key, **kwargs
+            )
+        adata.uns["methods"]["neighbors"] = neighbor_method
+        sc.tl.umap(adata, key_added=f"UMAP{key}", neighbors_key=neighbor_key)
+        if show is True:
+            sc.pl.embedding(adata, basis=f"UMAP{key}")
+
     if localmap is True:
         print("Starting LocalMAP...")
         lm = LocalMAP(**kwargs)
-        if use_rep == "integrated":
-            adata.obsm[f"LocalMAP{key}"] = lm.fit_transform(
-                adata.obsm[use_rep], init="pca"
-            )
-        elif use_rep is not None:
-            adata.obsm[f"LocalMAP{key}"] = lm.fit_transform(
-                adata.layers[use_rep], init="pca"
-            )
-        else:
+        if input_key is None:
             adata.obsm[f"LocalMAP{key}"] = lm.fit_transform(adata.X, init="pca")
+        elif input_key:
+            adata.obsm[f"LocalMAP{key}"] = lm.fit_transform(
+                adata.obsm[input_key], init="pca"
+            )
+        if show is True:
+            sc.pl.embedding(adata, basis=f"LocalMAP{key}")
 
     return adata
 
@@ -453,14 +491,19 @@ def Cluster(
     obs_key: str = "leiden",
     resolutions: Iterable = np.arange(5, 16) / 10,
     neighbor_key: str = "neighbors",
+    random_state: int = 123,
 ):
     for res in tqdm(resolutions):
-        sc.tl.leiden(
-            adata,
-            resolution=res,
-            neighbors_key=neighbor_key,
-            key_added=f"{obs_key}_{res}",
-        )
+        try:
+            sc.tl.leiden(
+                adata,
+                resolution=res,
+                neighbors_key=neighbor_key,
+                key_added=f"{obs_key}_{res}",
+                random_state=random_state,
+            )
+        except Exception as e:
+            print(f"{res} failed to run: {e}")
 
     return adata
 

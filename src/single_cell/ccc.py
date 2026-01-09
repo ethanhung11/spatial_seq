@@ -82,7 +82,26 @@ def liana_mouse_resource(
             "ramilowski2015",
         ]
         | List[str]
-    ),
+    ) = [
+        "baccin2019",
+        "cellcall",
+        "cellchatdb",
+        "cellinker",
+        "cellphonedbv5",
+        "cellphonedb",
+        "celltalkdb",
+        "connectomedb2020",
+        "consensus",
+        "embrace",
+        "guide2pharma",
+        "hpmr",
+        "icellnet",
+        "italk",
+        "kirouac2010",
+        "lrdb",
+        "ramilowski2015",
+        "mouseconsensus",
+    ],
 ):
     if type(resource_name) is str:
         resource_name = [resource_name]

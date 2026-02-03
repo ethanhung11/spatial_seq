@@ -1,0 +1,58 @@
+[workspace]
+authors = ["Ethan H <ethanhung11@gmail.com>"]
+name = "spatial_seq"
+version = "0.1.0"
+channels = ["conda-forge"]
+platforms = ["linux-64"]
+preview = ["pixi-build"]
+
+[tasks]
+
+[dependencies]
+
+[feature.cellcharter]
+channels = ["conda-forge", "pytorch", "nvidia", "bioconda", "nodefaults"]
+
+[feature.cellcharter.dependencies]
+python = "3.11.*"
+jupyter = "*"
+scanpy = ">1.11"
+anndata = ">0.12.1"
+squidpy = "*"
+pytorch-cuda = "12.4.*"
+pytorch = "*"
+torchvision = "*"
+torchaudio = "*"
+tqdm = "*"
+pip = "*"
+
+[feature.cellcharter.pypi-dependencies]
+scvi-tools = "*"
+cellcharter = "*"
+
+[feature.banksy.dependencies]
+python = "*"
+
+[feature.banksy.pypi-dependencies]
+pybanksy = { version = "*", extras = ["all"] }
+
+[feature.scenic]
+channels = ["conda-forge", "bioconda", "nodefaults"]
+
+[feature.scenic.dependencies]
+python = "==3.11.8"
+pyscenic = ">=0.12.1,<0.13"
+scanpy = ">=1.10.4,<2"
+
+[feature.cellbender.dependencies]
+python = "<3.10"
+pytables = "*"
+
+[feature.cellbender.pypi-dependencies]
+cellbender = { git = "https://github.com/broadinstitute/CellBender", rev = "4334e8966217c3591bf7c545f31ab979cdc6590d" }
+
+[environments]
+cellcharter = { features = ["cellcharter"], no-default-feature = true }
+banksy = ["banksy"]
+scenic = { features = ["scenic"], no-default-feature = true }
+cellbender = { features = ["cellbender"], no-default-feature = true }

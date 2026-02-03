@@ -5,12 +5,13 @@ description = "Add your description here"
 authors = [
     { name = "Ethan H", email = "ethanhung11@gmail.com" }
 ]
+
 dependencies = [
+    "pyproj==3.6.1",
     "spatialdata>=0.5.0",
     "spatialdata-plot>=0.2.12",
     "spatialdata-io>=0.3.0",
     "napari-spatialdata>=0.5.6",
-    "squidpy>=1.6.5",
     "scanpy>=1.11.4",
     "anndata>=0.12.2",
     "scvi-tools>=1.4.0.post1",
@@ -24,7 +25,6 @@ dependencies = [
     "liana>=1.5.1",
     "bbknn>=1.6.0",
     "louvain==0.8.2",
-    "cellcharter>=0.3.5",
     "tangram-sc>=1.0.4",
     "pydeseq2>=0.5.2",
     "gprofiler-official>=1.0.0",
@@ -39,6 +39,13 @@ dependencies = [
     "celltypist>=1.7.1",
     "scanorama>=1.7.4",
     "anndata2ri>=2.0",
+    "pygraphviz>=1.14",
+    "mygene>=3.2.2",
+    "symphonypy>=0.2.2",
+    "scib>=1.1.7",
+    "lxml>=6.0.2",
+    "pyclustree>=0.4.1",
+    "squidpy>=1.7.0",
 ]
 readme = "README.md"
 requires-python = ">= 3.11"

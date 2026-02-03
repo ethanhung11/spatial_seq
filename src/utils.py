@@ -1,12 +1,15 @@
 import os
 import re
 import json
+import random
 import numpy as np
 import pandas as pd
 from PIL import Image
 from tqdm import tqdm
 from pathlib import Path
-from typing import Iterable
+from typing import Iterable, Literal
+from time import time, ctime
+from datetime import timedelta
 
 # single cell
 import scanpy as sc
@@ -20,24 +23,90 @@ import rpy2.robjects as ro
 from single_cell.R import R_preload, get_converter
 
 
+def stopwatch(taskname:str = "", start = time(), setting:Literal[0,1,2] = 0):
+    if setting == 0:
+        print(
+            (
+                f"begin {taskname} at {ctime(time())}, "
+                f"(total: {timedelta(seconds=time()-start)})"
+            )
+        )
+    elif setting == 1:
+        print(f"finished in {timedelta(seconds=time()-start)}\n")
+    elif setting == 2:
+        pass
+    else:
+        raise ValueError("must be setting 0, 1, or 2")
+    return time()
+
+
 def clear_uns(adata: sc.AnnData, search: str):
-    for i in pd.Series(adata.uns.keys()):
-        if search in i:
-            del adata.uns[i]
+    for key in pd.Series(adata.uns.keys()):
+        if search in key:
+            print("deleted from `uns`: ", key)
+            del adata.uns[key]
 
 
 def clear_obsm(adata: sc.AnnData, search: str):
-    for i in pd.Series(adata.obsm.keys()):
-        if search in i:
-            del adata.obsm[i]
+    for key in pd.Series(adata.obsm.keys()):
+        if search in key:
+            print("deleted from `obsm`: ", key)
+            del adata.obsm[key]
 
 
-def clear_obs(adata, search):
+def clear_obs(adata: sc.AnnData, search: str):
+    print("deleted from `obs`: ", adata.obs.columns[adata.obs.columns.str.contains(search)])
     adata.obs = adata.obs.loc[:, ~adata.obs.columns.str.contains(search)]
+
+
+def clear_var(adata: sc.AnnData, search: str):
+    print("deleted from `var`: ", adata.var.columns[adata.var.columns.str.contains(search)])
+    adata.var = adata.var.loc[:, ~adata.var.columns.str.contains(search)]
+
+
+def clear_adata(adata, search):
+    if (
+        isinstance(search, str)
+        or isinstance(search, int)
+        or isinstance(search, float)
+        or isinstance(search, bool)
+    ):
+        search = [str(search)]
+    else:
+        search = list(search)
+    print(search)
+
+    for term in search:
+        clear_obs(adata, term)
+        clear_var(adata, term)
+        clear_uns(adata, term)
+        clear_obsm(adata, term)
+        for key in list(adata.obsp.keys()):
+            if term in key:
+                print("deleted from `obsp`: ", key)
+                del adata.obsp[key]
+        for key in list(adata.varm.keys()):
+            if term in key:
+                print("deleted from `varm`: ", key)
+                del adata.varm[key]
+        print("\n")
 
 
 def clean_string(s):
     return re.sub(r"[^a-zA-Z0-9._-]", "_", s)
+
+
+def generate_barcodes(count, length=16, alphabet="ATCG"):
+    unique_codes = set()
+    while len(unique_codes) < count:
+        code = "".join(random.choices(alphabet, k=length))
+        unique_codes.add(code)
+    return list(unique_codes)
+
+
+def find_barcodes(strings):
+    matches = [re.findall(r"[ATCG]{16}", s) for s in strings]
+    return pd.Series([m for sublist in matches for m in sublist]).astype(str)
 
 
 def create_cloupe(adata: sc.AnnData):
@@ -61,12 +130,6 @@ def create_cloupe(adata: sc.AnnData):
         )
         """
         )
-
-
-def find_barcodes(strings):
-    pattern = r"[ATCG]{16}"
-    matches = [re.findall(pattern, s) for s in strings]
-    return pd.Series([m for sublist in matches for m in sublist]).astype(str)
 
 
 def GetSingleCellDataDIRECT(directory: str, name: str, filetype: str):

@@ -10,11 +10,11 @@ dependencies:
   - scanpy
   - leidenalg
   - harmony-pytorch
-  - pip
   - R
   - rpy2
+  - pip
   - pip:
-    - banksy-py
+    - pybanksy
 
 # conda env create -y -f conda_banksy.yml
 # conda env update -f conda_banksy.yml

@@ -137,6 +137,7 @@ pyclustree = "*"
 plotly = "*"
 plotnine = "*"
 glasbey = "*"
+ipykernel = ">7"
 
 [feature.utils.dependencies]
 python = "*"

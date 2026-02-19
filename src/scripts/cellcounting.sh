@@ -9,18 +9,17 @@ cd "$parent_path"/../..
 transcriptome="./references/refdata-gex-GRCm39-2024-A"
 cores=20
 memusage=50
-
+ 
 show_usage() {
     echo "Usage: $0 [options]"
     echo ""
     echo "Options:"
-    echo "  -i, --inputcsv CSV      CSV with inputs to process (required)"
-    echo "  -i, --inputdir DIR      DIR with inputs to process (required)"
-    echo "  -o, --outputdir DIR     Output directory (optional)"
-    echo "  --transcriptome FILE    Transcriptome (optional), default is ./references/refdata-gex-GRCm39-2024-A"
-    echo "  --cores CORES           Cores (optional), default is 10"
-    echo "  --mem MBS               Memory Usage (optional), default is 500"
-    echo "  -h, --help              Show this help message"
+    echo "  -i, --inputdir, --inputcsv      DIR or CSV with inputs to process (required)"
+    echo "  -o, --outputdir DIR             Output directory (optional)"
+    echo "  --transcriptome FILE            Transcriptome (optional), default is ./references/refdata-gex-GRCm39-2024-A"
+    echo "  --cores CORES                   Cores (optional), default is 10"
+    echo "  --mem MBS                       Memory Usage (optional), default is 500"
+    echo "  -h, --help                      Show this help message"
     echo ""
     echo "Example:"
     echo "  $0 --inputcsv experiment.csv --output output.out"
@@ -63,7 +62,7 @@ done
 
 # Check required arguments
 if [[ -z "$input" ]]; then
-    echo "Error: --inputcsv is required"
+    echo "Error: --input is required"
     show_usage
     exit 1
 fi
@@ -116,13 +115,13 @@ if [[ -f "$input" && "$filename" == *.csv ]]; then
     done < "$input"
 
 elif [[ -d "$input" ]]; then
-    
-    # Create output directory
-    resultdir="./data/cellranger/$(basename $input)/$sample"
-    echo "$resultdir"
 
     find "$input" -maxdepth 1 -type d ! -name "$(basename "$input")" | while read -r sample; do
         echo $sample
+        # Create output directory
+        resultdir="./data/cellranger/$(basename $input)/$(basename $sample)"
+        echo "$resultdir"
+
         time cellranger count --id "$(basename $sample)" \
             --fastqs "$sample" \
             --transcriptome $transcriptome \

@@ -1,11 +1,7 @@
-import os
 import re
-import json
+import gzip
 import random
-import numpy as np
 import pandas as pd
-from PIL import Image
-from tqdm import tqdm
 from pathlib import Path
 from typing import Iterable, Literal
 from time import time, ctime
@@ -13,58 +9,150 @@ from datetime import timedelta
 
 # single cell
 import scanpy as sc
-import spatialdata as sd
-import spatialdata_plot as sdp  # noqa: F401
-import spatialdata_io
-from spatialdata_io._constants._constants import VisiumHDKeys
-
-# R
+from geosketch import gs
 import rpy2.robjects as ro
 from single_cell.R import R_preload, get_converter
 
 
-def stopwatch(taskname:str = "", start = time(), setting:Literal[0,1,2] = 0):
-    if setting == 0:
+def stopwatch(taskname: str = "", start=time(), mode: Literal[0, 1, 2] = 0):
+    if mode == 0:
         print(
             (
                 f"begin {taskname} at {ctime(time())}, "
                 f"(total: {timedelta(seconds=time()-start)})"
             )
         )
-    elif setting == 1:
-        print(f"finished in {timedelta(seconds=time()-start)}\n")
-    elif setting == 2:
+    elif mode == 1:
+        print(f"finished {taskname} in {timedelta(seconds=time()-start)}\n")
+    elif mode == 2:
         pass
     else:
-        raise ValueError("must be setting 0, 1, or 2")
+        raise ValueError("valid modes only include 0, 1, or 2")
     return time()
 
+def rename_obsm(adata, pat, prefix=None, suffix=None,
+                replace=None, filter=None):
+    if (prefix or suffix) and replace:
+        raise ValueError("Use prefix/suffix OR replace.")
+    if not (prefix or suffix or replace):
+        raise ValueError("Nothing to do.")
 
-def clear_uns(adata: sc.AnnData, search: str):
+    for k in list(adata.obsm.keys()):
+        if bool(re.search(pat, k)) and (filter is None or not bool(re.search(filter, k))):
+            new = k
+            if replace:
+                new = re.sub(pat, replace, k)
+            else:
+                new = f"{prefix or ''}{k}{suffix or ''}"
+
+            if new != k and not(new in adata.obsm):
+                print(f"renamed in obsm: {k} --> {new}")
+                adata.obsm[new] = adata.obsm[k].copy()
+                del adata.obsm[k]
+
+    return True
+
+def rename_uns(adata, pat, prefix=None, suffix=None,
+                replace=None, filter=None):
+    if (prefix or suffix) and replace:
+        raise ValueError("Use prefix/suffix OR replace.")
+    if not (prefix or suffix or replace):
+        raise ValueError("Nothing to do.")
+
+    for k in list(adata.uns.keys()):
+        if bool(re.search(pat, k)) and (filter is None or not bool(re.search(filter, k))):
+            if replace:
+                new = re.sub(pat, replace, k)
+            else:
+                new = f"{prefix or ''}{k}{suffix or ''}"
+
+            if new != k and not(new in adata.uns):
+                print(f"renamed in uns: {k} --> {new}")
+                adata.uns[new] = adata.uns[k].copy()
+                del adata.uns[k]
+
+    return True
+
+def rename_varm(adata, pat, prefix=None, suffix=None,
+                replace=None, filter=None):
+    if (prefix or suffix) and replace:
+        raise ValueError("Use prefix/suffix OR replace.")
+    if not (prefix or suffix or replace):
+        raise ValueError("Nothing to do.")
+    
+    for k in list(adata.uns.keys()):
+        if bool(re.search(pat, k)) and (filter is None or not bool(re.search(filter, k))):
+            if replace:
+                new = re.sub(pat, replace, k)
+            else:
+                new = f"{prefix or ''}{k}{suffix or ''}"
+
+            if new != k and not(new in adata.varm):
+                print(f"renamed in varm: {k} --> {new}")
+                adata.varm[new] = adata.varm[k].copy()
+                del adata.varm[k]
+
+    return True
+
+def rename_obsp(adata, pat, prefix=None, suffix=None,
+                replace=None, filter=None):
+    if (prefix or suffix) and replace:
+        raise ValueError("Use prefix/suffix OR replace.")
+    if not (prefix or suffix or replace):
+        raise ValueError("Nothing to do.")
+
+    for k in list(adata.uns.keys()):
+        if bool(re.search(pat, k)) and (filter is None or not bool(re.search(filter, k))):
+            if replace:
+                new = re.sub(pat, replace, k)
+            else:
+                new = f"{prefix or ''}{k}{suffix or ''}"
+
+            if new != k and not(new in adata.obsp):
+                print(f"renamed in obsp: {k} --> {new}")
+                adata.obsp[new] = adata.obsp[k].copy()
+                del adata.obsp[k]
+
+    return True
+
+def clear_uns(adata: sc.AnnData, pat: str, filter: str=None):
     for key in pd.Series(adata.uns.keys()):
-        if search in key:
+        if bool(re.search(pat, key)) and (filter is None or not bool(re.search(filter, key))):
             print("deleted from `uns`: ", key)
             del adata.uns[key]
 
 
-def clear_obsm(adata: sc.AnnData, search: str):
+def clear_obsm(adata: sc.AnnData, pat: str, filter: str=None):
     for key in pd.Series(adata.obsm.keys()):
-        if search in key:
+        if bool(re.search(pat, key)) and (filter is None or not bool(re.search(filter, key))):
             print("deleted from `obsm`: ", key)
             del adata.obsm[key]
 
 
-def clear_obs(adata: sc.AnnData, search: str):
-    print("deleted from `obs`: ", adata.obs.columns[adata.obs.columns.str.contains(search)])
-    adata.obs = adata.obs.loc[:, ~adata.obs.columns.str.contains(search)]
+def clear_obsp(adata: sc.AnnData, pat: str, filter: str=None):
+    for key in pd.Series(adata.obsp.keys()):
+        if bool(re.search(pat, key)) and (filter is None or not bool(re.search(filter, key))):
+            print("deleted from `obsp`: ", key)
+            del adata.obsp[key]
 
 
-def clear_var(adata: sc.AnnData, search: str):
-    print("deleted from `var`: ", adata.var.columns[adata.var.columns.str.contains(search)])
-    adata.var = adata.var.loc[:, ~adata.var.columns.str.contains(search)]
+def clear_obs(adata: sc.AnnData, pat: str):
+    print(
+        "deleted from `obs`: ",
+        adata.obs.columns[adata.obs.columns.str.contains(pat)],
+    )
+    adata.obs = adata.obs.loc[:, ~adata.obs.columns.str.contains(pat)]
 
 
-def clear_adata(adata, search):
+def clear_var(adata: sc.AnnData, pat: str):
+    print(
+        "deleted from `var`: ",
+        adata.var.columns[adata.var.columns.str.contains(pat)],
+    )
+    adata.var = adata.var.loc[:, ~adata.var.columns.str.contains(pat)]
+
+
+def clear_adata(adata, search, filter=None):
     if (
         isinstance(search, str)
         or isinstance(search, int)
@@ -79,8 +167,8 @@ def clear_adata(adata, search):
     for term in search:
         clear_obs(adata, term)
         clear_var(adata, term)
-        clear_uns(adata, term)
-        clear_obsm(adata, term)
+        clear_uns(adata, term, filter)
+        clear_obsm(adata, term, filter)
         for key in list(adata.obsp.keys()):
             if term in key:
                 print("deleted from `obsp`: ", key)
@@ -93,15 +181,48 @@ def clear_adata(adata, search):
 
 
 def clean_string(s):
-    return re.sub(r"[^a-zA-Z0-9._-]", "_", s)
+    return re.sub(r"[^a-zA-Z0-9._]", "_", s)
 
 
-def generate_barcodes(count, length=16, alphabet="ATCG"):
-    unique_codes = set()
-    while len(unique_codes) < count:
-        code = "".join(random.choices(alphabet, k=length))
-        unique_codes.add(code)
-    return list(unique_codes)
+def generate_barcodes(
+    N,
+    cellranger_installation=Path.home() / "apps" / "cellranger-9.0.1",
+    version="3M-3pgex-may-2023_TRU.txt.gz",
+):
+    with gzip.open(
+        Path(cellranger_installation)
+        / "lib"
+        / "python"
+        / "cellranger"
+        / "barcodes"
+        / version,
+        "rt",
+    ) as f:
+        valid_barcodes = [line.strip() for line in f]
+    return random.sample(valid_barcodes, k=N)
+
+
+def validate_barcodes(
+    barcodes,
+    cellranger_installation=Path.home() / "apps" / "cellranger-9.0.1",
+    version="3M-3pgex-may-2023_TRU.txt.gz",
+):
+    barcodes = set(barcodes)
+    with gzip.open(
+        Path(cellranger_installation)
+        / "lib"
+        / "python"
+        / "cellranger"
+        / "barcodes"
+        / version,
+        "rt",
+    ) as f:
+        valid_barcodes = set([line.strip() for line in f])
+
+    valid = barcodes.intersection(valid_barcodes)
+    not_valid = barcodes.difference(valid_barcodes)
+    print(f"valid: {len(valid)}\nnot valid: {len(not_valid)}")
+    return valid, not_valid
 
 
 def find_barcodes(strings):
@@ -109,268 +230,54 @@ def find_barcodes(strings):
     return pd.Series([m for sublist in matches for m in sublist]).astype(str)
 
 
-def create_cloupe(adata: sc.AnnData):
+def create_cloupe(
+    adata: sc.AnnData,
+    layer: str,
+    output: str,
+    obs: Iterable[str],
+    obsm: Iterable[str],
+    new_barcodes=None,
+):
+    output = Path(output)
+    transfer = sc.AnnData(
+        X=adata.layers[layer],
+        obs=adata.obs[obs],
+        var=adata.var.drop(columns=adata.var.columns),
+        obsm={dr: adata.obsm[dr] for dr in obsm},
+    )
+    if new_barcodes is not None:
+        if isinstance(new_barcodes, str):
+            transfer.obs_names = adata.obs[new_barcodes]
+        else:
+            transfer.obs_names = new_barcodes
+    print(transfer.obs_names)
     with ro.conversion.localconverter(get_converter()):
         R_preload()
-        ro.globalenv["sce"] = adata
+        ro.globalenv["sce"] = transfer
+        ro.globalenv["output_dir"] = str(output.parent)
+        ro.globalenv["output"] = str(output.name)
         ro.r(r"library(loupeR)")
         ro.r(r"clust <- as.list(colData(sce)) %>% lapply(as.factor)")
         ro.r(
-            r"stopifnot('Projections are not all 2D.' = all(sapply(reducedDims(sce), function(x) is.array(x) && length(dim(x)) == 2)))"
+            r"proj <- sapply(reducedDims(sce), function(x) x[, 1:2], simplify = FALSE) %>% as.list()"
         )
-        ro.r(r"proj = reducedDims(sce)")
 
-        ro.r(
-            r"""
+        ro.r(r"""
+        validate_barcodes(colnames(sce))$success %>% stopifnot()
         create_loupe(
             assay(sce, "X"),
             clusters = clust, 
             projections = proj,
-            output_name = "output",
+            output_dir = here(output_dir),
+            output_name = output,
         )
-        """
-        )
+        """)
 
+    return True
 
-def GetSingleCellDataDIRECT(directory: str, name: str, filetype: str):
-    if filetype == ".h5":
-        adata = sc.read_10x_h5(directory + filetype)
-    elif filetype == ".h5ad":
-        adata = sc.read_h5ad(directory + filetype)
-    elif filetype == ".mtx":
-        adata = sc.read_10x_mtx(directory)
-    else:
-        raise ValueError(
-            f"{filetype} is not a valid filetype. Must be h5, h5ad, or mtx."
-        )
-
-    adata.obs["Identifier"] = name
-    adata.obs.index = adata.obs.index + "_" + name
-    adata.layers["counts"] = adata.X.copy()
-
-    return adata
-
-
-def GetSingleCellData(
-    data_dir: str,
-    experiment_dir: str,
-    filename: str,
-    filetype: str,
-    convertR: bool = False,
-):
-    if convertR is True:
-        basedir = os.path.join(data_dir, experiment_dir)
-        with ro.conversion.localconverter(get_converter()):
-            ro.globalenv["datadir"] = basedir
-            ro.globalenv["filename"] = filename
-            ro.globalenv["filetype"] = filetype
-
-            print(basedir, filename, filetype)
-
-            R_preload()
-            ro.r(
-                """
-            datadir <- here(datadir)
-            experiments <- list.files(datadir)
-            adatas <- c()
-            sces <- c()
-            for (exp in experiments) {
-                if (filetype==".h5") {
-                    filedir <- paste(datadir, exp, paste0(filename,filetype), sep="/")
-                    print(filedir)
-                    seurat_data <- Read10X_h5(filedir, use.names = T, unique.features=T)
-                } else if (filetype==".mtx") {
-                    filedir <- paste(datadir, exp, filename, sep="/")
-                    print(filedir)
-                    seurat_data <- Read10X(filedir, unique.features=T)
-                }
-                
-                seurat_obj <- CreateSeuratObject(counts = seurat_data, project = exp)
-                sce <- convert_seurat_to_sce(seurat_obj)
-                sces <- c(sces,sce)
-            }
-            """
-            )
-            adatas = list(ro.globalenv["sces"])
-
-        for ad in adatas:
-            ad.obs["Identifier"] = ad.obs["orig.ident"]
-            ad.obs.index = ad.obs.index + "_" + ad.obs["orig.ident"].astype(str)
-            ad.layers["counts"] = ad.X.copy()
-            del ad.uns
-
-    else:
-        basedir = os.path.join(data_dir, experiment_dir)
-        samples = os.listdir(basedir)
-        filt_files = [os.path.join(basedir, s, filename) for s in samples]
-        adatas = [
-            GetSingleCellDataDIRECT(file, samples[n], filetype)
-            for n, file in enumerate(filt_files)
-        ]
-
-    return adatas
-
-
-def read_visium_hd_segmented(
-    outs_path: str,
-    sample_id: str,
-    shapes_name: str = "cell_segmentations",
-) -> sd.models.TableModel:
-    outs_path = Path(outs_path)
-    bin_size = "segmented_outputs"
-    path_bin = outs_path / bin_size
-    path_bin_spatial = path_bin / VisiumHDKeys.SPATIAL
-
-    # Load gene expression
-    counts_file = "raw_feature_cell_matrix.h5"
-    adata = sc.read_10x_h5(path_bin / counts_file, gex_only=False)
-    adata.var_names_make_unique()
-
-    # Load scalefactors and images
-    with open(path_bin_spatial / VisiumHDKeys.SCALEFACTORS_FILE) as f:
-        scalefactors = json.load(f)
-
-    hires_img = np.array(Image.open(path_bin_spatial / "tissue_hires_image.png"))
-    lowres_img = np.array(Image.open(path_bin_spatial / "tissue_lowres_image.png"))
-
-    library_id = sample_id
-    adata.uns["spatial"] = {
-        library_id: {
-            "images": {
-                "hires": hires_img,
-                "lowres": lowres_img,
-            },
-            "scalefactors": scalefactors,
-            "metadata": {"source_image_path": "tissue_hires_image.png"},
-        }
-    }
-
-    # Assign region info
-    adata.obs[VisiumHDKeys.INSTANCE_KEY] = np.arange(len(adata))
-    adata.obs[VisiumHDKeys.REGION_KEY] = shapes_name
-    adata.obs[VisiumHDKeys.REGION_KEY] = adata.obs[VisiumHDKeys.REGION_KEY].astype(
-        "category"
-    )
-
-    # Load cell shapes
-    shapes = spatialdata_io.geojson(
-        outs_path / "segmented_outputs" / f"{shapes_name}.geojson",
-        coordinate_system=sample_id,
-    )
-
-    # Match shape order to adata
-    centroids = shapes.geometry.centroid
-    adata.obsm["spatial"] = np.vstack([centroids.x.values, centroids.y.values]).T
-
-    # Estimate spot diameter
-    areas = shapes.geometry.area
-    mean_area = np.mean(areas)
-    diameter_pixels = 2 * np.sqrt(mean_area / np.pi)
-    adata.uns["spatial"][library_id]["scalefactors"][
-        "spot_diameter_fullres"
-    ] = diameter_pixels
-
-    return sd.models.TableModel.parse(
-        adata=adata,
-        region=shapes_name,
-        region_key=str(VisiumHDKeys.REGION_KEY),
-        instance_key=str(VisiumHDKeys.INSTANCE_KEY),
-    )
-
-
-def GetSpatialData(
-    directory: Path,
-    savedir: Path,
-    intermediate_path: str = "outs",
-    exclude: Iterable = [],
-    from_scratch: bool = True,
-    overwrite: bool = False,
-    get_custom_barcodes: bool = False,
-    **kwargs,
-):
-    """
-    Gets all spatial data from a directory.
-    `**kwargs` are sent to `spatialdata_io.visium_hd()`
-    Run sdatas = sd.concatenate(sdatas, concatenate_tables=True) to concatenate
-    """
-    sdatas = {}
-    barcodes = {}
-    samples = os.listdir(directory)
-    for s in exclude:
-        samples.remove(s)
-
-    for n, sample in tqdm(enumerate(samples)):
-        savefile = savedir / sample / "object.zarr"
-        outs_dir = directory / sample / intermediate_path
-
-        if from_scratch is True:
-            sdata = spatialdata_io.visium_hd(
-                outs_dir,
-                dataset_id=sample,
-                load_all_images=True,
-                var_names_make_unique=True,
-                **kwargs,
-            )
-
-            # rename shapes
-            for img_name in ["cytassist_image", "hires_image", "lowres_image"]:
-                sdata[img_name] = sdata[f"{sample}_{img_name}"]
-                del sdata[f"{sample}_{img_name}"]
-
-            # rename shapes & annotations
-            for bin_size in ["002", "008", "016"]:
-                sdata[f"SHAPE_square_{bin_size}um"] = sdata[
-                    f"{sample}_square_{bin_size}um"
-                ]
-                del sdata[f"{sample}_square_{bin_size}um"]
-                sdata[f"square_{bin_size}um"].uns["spatialdata_attrs"]["region"] = [
-                    f"SHAPE_square_{bin_size}um"
-                ]
-                sdata[f"square_{bin_size}um"].obs[
-                    "region"
-                ] = f"SHAPE_square_{bin_size}um"
-
-            # add segmentation information
-            sdata["nucleus_segmentation"] = spatialdata_io.geojson(
-                outs_dir / "segmented_outputs" / "nucleus_segmentations.geojson",
-                coordinate_system=sample,
-            ).rename_axis("location_id")
-
-            sdata["cell_segmentation"] = spatialdata_io.geojson(
-                outs_dir / "segmented_outputs" / "cell_segmentations.geojson",
-                coordinate_system=sample,
-            ).rename_axis("location_id")
-
-            sdata[f"segmented_bins"] = read_visium_hd_segmented(
-                outs_dir,
-                sample_id=sample,
-                shapes_name=["cell_segmentation"],
-            )
-
-            for table in sdata.tables.values():
-                table.obs["Identifier"] = sample
-                table.layers["counts"] = table.X
-
-            if overwrite is True:
-                sdata.write(savefile)
-                sdata = sd.read_zarr(savefile)
-        else:
-            sdata = sd.read_zarr(savefile)
-
-        sdatas[sample] = sdata
-
-        if get_custom_barcodes is True:
-            spatial_barcode_subsets = savedir / sample
-            barcodes[sample] = {}
-            for csv in spatial_barcode_subsets:
-                if ".csv" in csv:
-                    barcodes[sample][csv] = pd.read_csv(savedir / sample / csv)
-                    barcodes[sample][csv]["Barcode"] = (
-                        barcodes[sample][csv]["Barcode"] + f"-{sample}"
-                    )
-                    barcodes[sample][csv].set_index("Barcode", inplace=True)
-
-    return samples, sdatas, barcodes
+def sketch_downsample(adata: sc.AnnData, key: str, N: int = 10000):
+    sketch_index = gs(adata.obsm[key], N, replace=False)
+    return adata[sketch_index]
 
 
 def concat_spatial(x, y, ref_x, ref_y, offset_x=0, offset_y=0, mode="perc"):

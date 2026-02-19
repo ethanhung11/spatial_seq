@@ -1,10 +1,12 @@
-from typing import Iterable, Literal
-from anndata import AnnData
-
+from typing import Iterable, Literal, Mapping
 import os
 import numpy as np
 from tqdm import tqdm
+from pathlib import Path
+
+import scipy
 import scanpy as sc
+import pyucell as uc
 import liana as li
 import decoupler as dc
 import gseapy as gp
@@ -12,30 +14,48 @@ import pandas as pd
 from .ccc import liana_mouse_resource
 
 
+def module_score(
+    adata: sc.AnnData,
+    genesets: Mapping[str, Iterable[str]],
+    method: Literal["Seurat", "UCell", "AUCell"] = "Seurat",
+    zscore: bool = True,
+):
+    for name in genesets:
+        genesets[name] = pd.Series(genesets[name]).unique()
+
+    if method == "Seurat":
+        for name in genesets:
+            sc.tl.score_genes(adata, genesets[name], score_name=f"{name}_Seurat")
+    elif method == "UCell":
+        uc.compute_ucell_scores(adata, signatures=genesets)
+    elif method == "AUCell":
+        input_genesets = pd.concat(
+            [
+                pd.DataFrame({key: genesets[key]}).melt(
+                    var_name="source", value_name="target"
+                )
+                for key in genesets
+            ]
+        )
+        input_genesets = input_genesets.drop_duplicates().reset_index(drop=True)
+
+        dc.mt.aucell(data=adata, net=input_genesets, layer="normalized", verbose=True)
+        for name in adata.obsm["score_aucell"]:
+            adata.obs[f"{name}_AUCell"] = adata.obsm["score_aucell"][name]
+        del adata.obsm["score_aucell"]
+
+    if zscore is True:
+        for name in genesets:
+            col = f"{name}_{method}"
+            adata.obs[col] = scipy.stats.zscore(adata.obs[col])
+    return adata
+
+
 def cell2cell_interactions(
-    adata: AnnData,
-    cell_group="cell_type",
+    adata: sc.AnnData,
+    cell_group: str,
+    resource: pd.DataFrame,
     key="ccc",
-    resource_opts: Iterable[str] = [
-        "baccin2019",
-        "cellcall",
-        "cellchatdb",
-        "cellinker",
-        "cellphonedbv5",
-        "cellphonedb",
-        "celltalkdb",
-        "connectomedb2020",
-        "consensus",
-        "embrace",
-        "guide2pharma",
-        "hpmr",
-        "icellnet",
-        "italk",
-        "kirouac2010",
-        "lrdb",
-        "ramilowski2015",
-        "mouseconsensus",
-    ],
     methods: Iterable = None,
     filter_results: bool = True,
     cores: int = None,
@@ -44,7 +64,8 @@ def cell2cell_interactions(
         cores = os.cpu_count()
 
     # pull interaction databases
-    ccc_db = liana_mouse_resource(resource_opts)
+    if resource is None:
+        resource = liana_mouse_resource()
 
     # run all methods
     if methods is None:
@@ -64,12 +85,12 @@ def cell2cell_interactions(
         return_all_lrs=True,
         verbose=True,
         n_jobs=cores,
-        resource=ccc_db[["ligand", "receptor"]],
+        resource=resource[["ligand", "receptor"]],
     )
 
     # save reference database info
     adata.uns[key] = adata.uns[key].merge(
-        ccc_db[["ligand", "receptor", "db_sources"]],
+        resource[["ligand", "receptor", "db_sources"]],
         left_on=["ligand_complex", "receptor_complex"],
         right_on=["ligand", "receptor"],
         how="left",
@@ -123,12 +144,18 @@ def cell2cell_interactions(
 
 
 def GO_Enrich(
-    adata,
-    groupby,
-    key,
-    sources=["GO:MF", "GO:CC", "GO:BP", "KEGG", "REAC"],
-    pval_cutoff=1e-4,
-    log2fc_min=2,
+    adata: sc.AnnData,
+    groupby: str,
+    key: str,
+    sources: Literal["GO:MF", "GO:CC", "GO:BP", "KEGG", "REAC"] = [
+        "GO:MF",
+        "GO:CC",
+        "GO:BP",
+        "KEGG",
+        "REAC",
+    ],
+    pval_cutoff: float = 1e-4,
+    log2fc_min: float = 2,
 ):
     # see here for other gprofilier args: https://biit.cs.ut.ee/gprofiler/page/apis
 
@@ -154,17 +181,16 @@ def GO_Enrich(
     return GO_enrichments
 
 
-def GSEA_decoupler(
-    adata: AnnData,
+def decoupler_gsea(
+    adata: sc.AnnData,
     name: str,
-    type: Literal["ULM", "GSEA", "GSVA", "AUCell"] = "ULM",
-    geneset_dir: str = None,
+    type: Literal["ULM", "FGSEA", "ORA", "GSVA", "AUCell"] = "ULM",
     geneset=None,
     remove_prefix=False,
 ):
-    if geneset is None:
-        assert geneset_dir is not None
-        geneset = dc.pp.read_gmt(geneset_dir)
+    if isinstance(geneset, str):
+        assert Path(geneset).exists()
+        geneset = dc.pp.read_gmt(geneset)
         if remove_prefix is True:
             prefixes = geneset.source.str.split("_", expand=True)[0].unique().tolist()
             for pre in prefixes:
@@ -175,34 +201,34 @@ def GSEA_decoupler(
         adata.obsm[f"{name}_score_ulm"] = adata.obsm["score_ulm"]
         adata.obsm[f"{name}_padj_ulm"] = adata.obsm["padj_ulm"]
         del adata.obsm["score_ulm"], adata.obsm["padj_ulm"]
-
-    elif type == "GSEA":
+    elif type == "FGSEA":
         dc.mt.gsea(data=adata, net=geneset, layer="normalized", verbose=True)
         adata.obsm[f"{name}_score_gsea"] = adata.obsm["score_gsea"]
         adata.obsm[f"{name}_padj_gsea"] = adata.obsm["padj_gsea"]
         del adata.obsm["score_gsea"], adata.obsm["padj_gsea"]
-
     elif type == "GSVA":
-        dc.mt.gsea(data=adata, net=geneset, layer="normalized", verbose=True)
-        adata.obsm[f"{name}_score_gsea"] = adata.obsm["score_gsva"]
+        dc.mt.gsva(data=adata, net=geneset, layer="normalized", verbose=True)
+        adata.obsm[f"{name}_score_gsva"] = adata.obsm["score_gsva"]
         del adata.obsm["score_gsva"]
-
     elif type == "AUCell":
         dc.mt.aucell(data=adata, net=geneset, layer="normalized", verbose=True)
         adata.obsm[f"{name}_score_aucell"] = adata.obsm["score_aucell"]
         del adata.obsm["score_aucell"]
-
+    elif type == "PRA":
+        dc.mt.ora(data=adata, net=geneset, layer="normalized", verbose=True)
+        adata.obsm[f"{name}_score_ora"] = adata.obsm["score_ora"]
+        del adata.obsm["score_ora"]
     else:
         raise ValueError("Not a valid method!")
 
     return adata
 
 
-def GSEA_gseapy(
-    adata: AnnData,
+def gseapy_gsea(
+    adata: sc.AnnData,
+    groupby: str,
     genesets: list,
-    method: Literal["ssgea", "gsea", "prerank", "gsva"] = "prerank",
-    groupby: str = None,
+    method: Literal["ssgea", "gsea", "prerank", "gsva"] = "gsea",
     threads: int = 10,
     seed: int = 6,
     **kwargs,
@@ -219,7 +245,7 @@ def GSEA_gseapy(
             order[first_idx], order[0] = order[0], order[first_idx]
             tmp = adata[order]
 
-            out = GSEA_gseapy_helper(
+            out = gseapy_helper(
                 tmp,
                 genesets,
                 method,
@@ -238,7 +264,7 @@ def GSEA_gseapy(
     return gsea_results
 
 
-def GSEA_gseapy_helper(
+def gseapy_helper(
     adata=None,
     genesets=None,
     method=None,

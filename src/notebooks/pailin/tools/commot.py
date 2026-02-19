@@ -6,7 +6,6 @@ from single_cell.analysis import *
 from time import ctime, time
 from datetime import timedelta
 
-
 DATADIR = Path("./data")
 
 if __name__ == "__main__":

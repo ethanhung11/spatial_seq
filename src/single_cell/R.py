@@ -16,8 +16,7 @@ def get_converter():
 
 
 def R_preload() -> bool:
-    ro.r(
-        """
+    ro.r("""
         # general
         library(dplyr)
         library(here)
@@ -37,5 +36,4 @@ def R_preload() -> bool:
         library("loupeR")
             
         options(max.print = 300)
-        """
-    )
+        """)

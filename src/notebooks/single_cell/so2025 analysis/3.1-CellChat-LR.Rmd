@@ -54,7 +54,6 @@ CellChatDB.use <- subsetDB(CellChatDB, search = "Secreted Signaling", key = "ann
 # use all CellChatDB except for "Non-protein Signaling" for cell-cell communication analysis
 # CellChatDB.use <- subsetDB(CellChatDB)
 
-
 # use all CellChatDB for cell-cell communication analysis
 # CellChatDB.use <- CellChatDB # simply use the default CellChatDB. We do not suggest to use it in this way because CellChatDB v2 includes "Non-protein Signaling" (i.e., metabolic and synaptic signaling). 
 

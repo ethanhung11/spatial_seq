@@ -10,6 +10,22 @@ preview = ["pixi-build"]
 
 [dependencies]
 
+[feature.spagrn]
+channels = ["conda-forge", "bioconda", "nodefaults"]
+
+[feature.spagrn.dependencies]
+setuptools = "==69.5.1"
+python = ">3.8"
+pyscenic = ">=0.12.1,<0.13"
+scanpy = ">=1.10.4,<2"
+jupyter = "*"
+arboreto = "*"
+ctxcore = ">=0.2.0"
+spagrn = "==1.0.7"
+
+[feature.spagrn.pypi-dependencies]
+hotspotsc = "==1.1.3"
+
 [feature.cellcharter]
 channels = ["conda-forge", "pytorch", "nvidia", "bioconda", "nodefaults"]
 
@@ -40,9 +56,11 @@ pybanksy = { version = "*", extras = ["all"] }
 channels = ["conda-forge", "bioconda", "nodefaults"]
 
 [feature.scenic.dependencies]
-python = "==3.11.8"
+setuptools = "==69.5.1"
+python = "==3.10.15"
 pyscenic = ">=0.12.1,<0.13"
 scanpy = ">=1.10.4,<2"
+jupyter = "*"
 
 [feature.cellbender.dependencies]
 python = "<3.10"
@@ -51,8 +69,94 @@ pytables = "*"
 [feature.cellbender.pypi-dependencies]
 cellbender = { git = "https://github.com/broadinstitute/CellBender", rev = "4334e8966217c3591bf7c545f31ab979cdc6590d" }
 
+[feature.corneto]
+channels = ["conda-forge", "bioconda", "nodefaults"]
+
+[feature.corneto.dependencies]
+python = "*"
+python-graphviz = "*"
+
+[feature.corneto.pypi-dependencies]
+scipy = "*"
+cvxpy = "*"
+cylp = "*"
+gurobipy = "*"
+corneto = "*"
+numpy = "<=2.3"
+
+[feature.mofa.dependencies]
+python = ">3.8"
+
+[feature.mofa.pypi-dependencies]
+decoupler = ">=2.0.0"
+mofax = "*"
+muon = "*"
+omnipath = "*"
+marsilea = "*"
+plotnine = "*"
+liana = "*"
+mofapy2 = "*"
+
+[feature.spatial-seq.dependencies]
+python = ">=3.11"
+
+[feature.spatial-seq.pypi-dependencies]
+pyqt5 = "*"
+spatialdata = "*"
+spatialdata-io = "*"
+napari-spatialdata = "*"
+squidpy = "*"
+hotspotsc = "*"
+
+[feature.scRNA-seq.dependencies]
+python = ">=3.11"
+setuptools = "==69.5.1"
+
+[feature.scRNA-seq.pypi-dependencies]
+anndata = "*"
+anndata2ri = "*"
+scanpy = "*"
+scvi-tools = "*"
+mygene = "*"
+doubletdetection = "*"
+harmonypy = "*"
+celltypist = "*"
+scanorama = "*"
+louvain = "*"
+pacmap = "*"
+pyucell = "*"
+decoupler = "*"
+omnipath = "*"
+liana = "*"
+pydeseq2 = "*"
+gprofiler-official = "*"
+gseapy = "*"
+geosketch = "*"
+palantir = "*"
+pyclustree = "*"
+plotly = "*"
+plotnine = "*"
+glasbey = "*"
+
+[feature.utils.dependencies]
+python = "*"
+
+[feature.utils.pypi-dependencies]
+scanpy = "*"
+jupyter = "*"
+nbqa = { version = "*", extras = ["toolchain"] }
+ruff = "*"
+
+[feature.experimental.pypi-dependencies]
+symphonypy = "*"
+scib = "*"
+screcode = "*"
+
 [environments]
-cellcharter = { features = ["cellcharter"], no-default-feature = true }
-banksy = ["banksy"]
-scenic = { features = ["scenic"], no-default-feature = true }
+cellcharter = { features = ["cellcharter", "utils"], no-default-feature = true }
+banksy = { features = ["banksy", "utils"], no-default-feature = true }
+scenic = { features = ["scenic", "utils"], no-default-feature = true }
 cellbender = { features = ["cellbender"], no-default-feature = true }
+spagrn = { features = ["spagrn", "utils"], no-default-feature = true }
+main = {features = ["spatial-seq", "scRNA-seq", "utils", "corneto", "experimental"], no-default-feature = true }
+mofa = ["mofa", "utils"]

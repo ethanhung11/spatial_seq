@@ -20,5 +20,5 @@ for (sample in list.files(path=localdir)) {
   DefaultAssay(object) <- "Spatial.008um"
   visium_objs[[sample]] <- object
 }
-
+save.image()
 ```

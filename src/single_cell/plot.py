@@ -1,5 +1,4 @@
 from typing import Iterable
-from anndata import AnnData
 
 from collections import Counter
 from tqdm import tqdm
@@ -10,6 +9,7 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 import plotly.graph_objects as go
 from glasbey import create_palette
+from pyclustree import clustree
 
 import scanpy as sc
 import decoupler as dc
@@ -22,17 +22,39 @@ def empty_axs(axs: np.ndarray):
     return
 
 
-def order_obs(adata: AnnData, col: str, order: Iterable[str]):
+def order_obs(adata: sc.AnnData, col: str, order: Iterable[str]):
     adata.obs[col] = pd.Categorical(adata.obs[col], categories=order, ordered=True)
     return
 
 
-def color_gen(groups: pd.Series | Iterable | np.array, custom_index=None):
-    cs = create_palette(palette_size=len(groups.unique()))
-    if custom_index is not None:
-        return pd.Series(cs, index=custom_index)
+def color_gen(groups: pd.Series | Iterable | np.array, name_matched=False):
+    n_colors = len(groups)
+    if n_colors > 50:
+        raise ValueError(
+            "Cannot have more than 50 colors!\nCheck that you are submitting pd.Series.cat.categories, not the whole pd.Series"
+        )
+    colors = create_palette(palette_size=n_colors)
+    if name_matched is True:
+        return pd.Series(colors, index=groups)
     else:
-        return cs
+        return colors
+
+
+def color_gen_seq(
+    groups: pd.Series | Iterable | np.array, name_matched=False, cmap_name="RdBu"
+):
+    n_colors = len(groups)
+    if n_colors > n_colors:
+        raise ValueError(
+            "Cannot have more than 50 colors!\nCheck that you are submitting pd.Series.cat.categories, not the whole pd.Series"
+        )
+    cmap = plt.get_cmap(cmap_name)
+    colors = [mpl.colors.to_hex(color) for color in cmap(np.linspace(0, 1, n_colors))]
+
+    if name_matched is True:
+        return pd.Series(colors, index=groups)
+    else:
+        return colors
 
 
 def check_QCPlot(df, value, groupby):
@@ -75,20 +97,31 @@ def check_QCPlot(df, value, groupby):
 
 
 def check_integration(
-    adata: AnnData,
+    adata: sc.AnnData,
     category: str,
     f,
     embeddings: Iterable[str] = ["X_umap", "LocalMAP"],
     nrow: int = None,
-    ncol: int = None,
+    palette: pd.Series = None,
     mini=False,
 ):
-    print(f"Category {category} has {len(adata.obs[category].unique())} groups!")
+    if adata.obs[category].dtype != "category":
+        print(f"Converting adata.obs[{category}] to `category` dtype.")
+        adata.obs[category] = adata.obs[category].astype("category")
+    print(f"found {len(adata.obs[category].cat.categories)} groups in {category}")
+    if palette is None:
+        if adata.uns.get(f"{category}_colors") is None:
+            print("Palette not found! Generating palette.")
+            palette = color_gen(adata.obs[category].cat.categories, True)
+        else:
+            palette = pd.Series(
+                adata.uns[f"{category}_colors"],
+                index=adata.obs[category].cat.categories,
+            )
 
     sf = f.subfigures(1, len(embeddings))
     if len(embeddings) == 1:
         sf = [sf]
-    int_colors = color_gen(adata.obs[category], adata.obs[category].cat.categories)
 
     for e, obsm in enumerate(embeddings):
         if mini is True:
@@ -99,7 +132,7 @@ def check_integration(
                 color=category,
                 ax=ax,
                 show=False,
-                palette=int_colors.to_list(),
+                palette=palette.to_list(),
             )
 
             ax.annotate(
@@ -114,8 +147,9 @@ def check_integration(
             # legend_loc='none' if e<len(embeddings)-1 else "right margin")
 
         else:
-            assert nrow is not None and ncol is not None
-            axs = sf[e].subplots(nrow * 2, ncol)
+            size = 100000 / adata.shape[0]
+            assert nrow is not None
+            axs = sf[e].subplots(nrow * 2, nrow)
             gs = axs[0, 0].get_gridspec()
             empty_axs(axs)
             ax = sf[e].add_subplot(gs[:nrow, :])
@@ -123,9 +157,10 @@ def check_integration(
                 adata,
                 basis=obsm,
                 color=category,
+                size=size,
                 ax=ax,
                 show=False,
-                palette=int_colors.to_list(),
+                palette=palette.to_list(),
             )
             ax.annotate(
                 f"n = {adata.shape[0]}",
@@ -139,28 +174,39 @@ def check_integration(
             xlims = ax.get_xlim()
             ylims = ax.get_ylim()
 
-            for n, group in enumerate(adata.obs[category].unique()):
+            for n, group in enumerate(
+                tqdm(
+                    adata.obs[category].cat.categories,
+                    desc=f"Plotting individual {category}",
+                )
+            ):
+                tmp = adata.obs[category]
+                adata.obs["temp"] = tmp.mask(tmp != group)
                 ax = sf[e].add_subplot(gs[nrow + n // nrow, n % nrow])
                 sc.pl.embedding(
-                    adata[adata.obs[category] == group],
+                    adata,
                     basis=obsm,
-                    color=category,
+                    color="temp",
+                    size=size,
                     ax=ax,
                     show=False,
-                    palette=[int_colors[group]],
-                    legend_loc="none",
+                    palette=[palette[group]],
+                    legend_loc="none"
                 )
                 ax.set_title(group)
                 ax.set_xlim(*xlims)
                 ax.set_ylim(*ylims)
+                ax.set(xlabel=None, ylabel=None)
+
+            adata.obs.drop(columns=["temp"], inplace=True)
 
     return
 
 
 def check_doublets(
-    adata: AnnData,
-    embedding: str="X_umap",
-    cluster_key: str ="leiden",
+    adata: sc.AnnData,
+    embedding: str = "X_umap",
+    cluster_key: str = "leiden",
     doubletMethods=["scDblFinder", "DoubletFinder", "doubletdetection", "scrublet"],
 ):
     f = plt.figure(figsize=(20, 7), layout="constrained")
@@ -213,37 +259,55 @@ def check_doublets(
 
 
 def plot_violinplot(
-    adata: AnnData,
+    adata: sc.AnnData,
     group: str,
     markers: Iterable[str] | dict[str, Iterable[str]],
     f=None,
     layer: str = "normalized",
-    useStripPlot=True,
-    palette=None,
-    bracket_params=None,
-    ylabel_size=12,
-    xlabel_size=10,
+    useStripPlot: bool = False,
+    palette: Iterable = None,
+    title=None,
+    title_fontsize: int = 15,
+    y_fontsize: int = 12,
+    x_fontsize: int = 10,
     xlabel_params={"angle": 60, "align": "right"},
-    bracket_fontsize=12,
+    bracket_fontsize: int = 12,
+    y_blank: bool = False,
+    grouped_adjustment=1,
+    x_bracket_params=None,
 ):
+
+    if adata.obs[group].dtype != "category":
+        print(f"Converting adata.obs[{group}] to `category` dtype.")
+        adata.obs[group] = adata.obs[group].astype("category")
+    if palette is None and adata.uns.get(f"{group}_colors") is None:
+        print("Palette not found! Generating palette.")
+        palette = color_gen(adata.obs[group].cat.categories)
+
+    if title is not None:
+        f.suptitle(title, size=title_fontsize)
+
     # Convert markers to flat list for plotting
     is_dict = isinstance(markers, dict)
     marker_list = list(markers.values()) if is_dict else [[m] for m in markers]
     flat_markers = [m for group_markers in marker_list for m in group_markers]
-    
+    n_groups = len(adata.obs[group].unique())
+
     # Create subplots
     if f:
         axs = f.subplots(len(flat_markers), 1)
     else:
         f, axs = plt.subplots(
-            len(flat_markers), 1, figsize=(len(adata.obs[group].unique()), len(flat_markers))
+            len(flat_markers),
+            1,
+            figsize=(n_groups, len(flat_markers)),
         )
 
     if type(axs) is not np.ndarray:
         axs = [axs]
 
     # Plot violin plots for each marker
-    for n, m in tqdm(enumerate(flat_markers)):
+    for n, m in enumerate(tqdm(flat_markers, desc="Plotting violins")):
         sc.pl.violin(
             adata,
             m,
@@ -255,54 +319,102 @@ def plot_violinplot(
             stripplot=useStripPlot,
             palette=palette,
         )
+        if hasattr(axs[n], "legend_") and axs[n].legend_ is not None:
+            axs[n].legend_.remove
         # Hide x-axis labels and ticks for all but bottom plot
         if n < len(flat_markers) - 1:
             axs[n].set_xlabel("")
-            axs[n].set_xticklabels([""] * len(axs[n].get_xticklabels()))
-        axs[n].set_ylabel(axs[n].get_ylabel(), size=ylabel_size)
+            axs[n].set_xticks([])
+            axs[n].set_xticklabels([])
+        if y_blank is False:
+            axs[n].set_ylabel(axs[n].get_ylabel(), size=y_fontsize)
+        else:
+            axs[n].set_ylabel(None)
 
     # Add left-side brackets for marker sets if markers is a dictionary
-    if is_dict:
+    if is_dict and y_blank is False:
+        trans = f.transFigure
         idx = 0
         for set_name, set_markers in markers.items():
             start_ax = axs[idx]
             end_ax = axs[idx + len(set_markers) - 1]
-            mid_y = (start_ax.get_position().y1 + end_ax.get_position().y0) / 2
-            bracket_x = start_ax.get_position().x0 - 0.08
-            
+
+            bbox_start = start_ax.get_window_extent().transformed(
+                f.transFigure.inverted()
+            )
+            bbox_end = end_ax.get_window_extent().transformed(f.transFigure.inverted())
+
+            y_start = bbox_start.y1 * grouped_adjustment
+            y_end = bbox_end.y0 * grouped_adjustment
+            # if grouped_adjustment:
+            #     y_start -=
+            bracket_x = (
+                start_ax.get_position().x0
+                - (start_ax.get_position().x1 - start_ax.get_position().x0) / n_groups
+            )
+
             # Add braclets
-            f.text(bracket_x - 0.015, mid_y, set_name, ha='center', va='center', rotation=90, 
-                   transform=f.transFigure, fontsize=bracket_fontsize)
-            f.add_artist(plt.Line2D([bracket_x, bracket_x], [end_ax.get_position().y0, start_ax.get_position().y1], 
-                                    transform=f.transFigure, color='k', linewidth=1))
-            f.add_artist(plt.Line2D([bracket_x, bracket_x + 0.005], [end_ax.get_position().y0, end_ax.get_position().y0], 
-                                    transform=f.transFigure, color='k', linewidth=1))
-            f.add_artist(plt.Line2D([bracket_x, bracket_x + 0.005], [start_ax.get_position().y1, start_ax.get_position().y1], 
-                                    transform=f.transFigure, color='k', linewidth=1))
+            f.text(
+                bracket_x - 0.015,
+                (y_start + y_end) / 2,
+                set_name,
+                ha="center",
+                va="center",
+                rotation=90,
+                transform=trans,
+                fontsize=bracket_fontsize,
+            )
+            f.add_artist(
+                plt.Line2D(
+                    [bracket_x, bracket_x],
+                    [y_end, y_start],
+                    transform=trans,
+                    color="k",
+                    linewidth=1,
+                )
+            )
+            f.add_artist(
+                plt.Line2D(
+                    [bracket_x, bracket_x + 0.005],
+                    [y_end, y_end],
+                    transform=trans,
+                    color="k",
+                    linewidth=1,
+                )
+            )
+            f.add_artist(
+                plt.Line2D(
+                    [bracket_x, bracket_x + 0.005],
+                    [y_start, y_start],
+                    transform=trans,
+                    color="k",
+                    linewidth=1,
+                )
+            )
             idx += len(set_markers)
 
     # Format x-axis labels on bottom plot
     axs[-1].set_xticklabels(
         axs[-1].get_xticklabels(),
-        size=xlabel_size,
+        size=x_fontsize,
         rotation=xlabel_params.get("angle"),
         ha=xlabel_params.get("align"),
         rotation_mode="anchor",
     )
 
     # Add bottom x-axis brackets if bracket_params provided
-    if bracket_params is not None:
-        ratios = bracket_params["ratio"] / np.sum(bracket_params["ratio"])
+    if x_bracket_params is not None:
+        ratios = x_bracket_params["ratio"] / np.sum(x_bracket_params["ratio"])
         ends = np.append(0, np.cumsum(ratios))
         bar_label_locs = [ends[i] + ratios[i] / 2 for i in range(len(ratios))]
         bar_bracket_widths = ratios * f.get_size_inches()[0] * 3.1
 
         axs = f.get_axes()
-        for n, label in enumerate(bracket_params["labels"]):
+        for n, label in enumerate(x_bracket_params["labels"]):
             axs[-1].annotate(
                 label,
-                xy=(bar_label_locs[n], -bracket_params["bracket_y"]),
-                xytext=(bar_label_locs[n], -bracket_params["label_y"]),
+                xy=(bar_label_locs[n], -x_bracket_params["bracket_y"]),
+                xytext=(bar_label_locs[n], -x_bracket_params["label_y"]),
                 xycoords="axes fraction",
                 ha="center",
                 va="bottom",
@@ -313,32 +425,37 @@ def plot_violinplot(
                     color="k",
                 ),
             )
-        axs[-1].set_xlabel(axs[-1].get_xlabel(), labelpad=bracket_params["padding"])
+        axs[-1].set_xlabel(axs[-1].get_xlabel(), labelpad=x_bracket_params["padding"])
 
-    return
+    return f
 
 
 def plot_cluster_violinplot(
-    adata,
-    group: str,
-    clusters: str,
-    markers,
-    f=None,
+    adata, group: str, clusters: str, markers, f=None, grouped_adjustment=0.99
 ):
+    n_markers = (
+        np.sum(len(m) for m in markers.values())
+        if isinstance(markers, dict)
+        else len(markers)
+    )
+    n_groups = len(adata.obs[clusters].unique()) * len(adata.obs[group].unique())
     if f is None:
+        # print(n_markers)
         f = plt.figure(
-            figsize=(
-                len(adata.obs[clusters].unique())
-                * len(adata.obs[group].unique())
-                * 1.2,
-                len(markers) * 1.2 + 3,
-            ),
-            layout="constrained",
+            figsize=(n_groups * 1.2, n_markers * 1.2 + 3), layout="constrained"
         )
 
     clusts = adata.obs[clusters].cat.categories
-    cols = color_gen(adata.obs[group], adata.obs[group].cat.categories)
-    sf = f.subfigures(2, len(clusts), height_ratios=[len(markers) * 1.2, 3])
+    cols = color_gen(adata.obs[group].cat.categories, True)
+    sf = f.subfigures(
+        2,
+        len(clusts),
+        height_ratios=(
+            [3, len(markers) * 1.2]
+            if isinstance(markers, dict)
+            else [len(markers) * 1.2, 3]
+        ),
+    )
 
     crosstab_counts = pd.crosstab(adata.obs[clusters], adata.obs[group])
     crosstab_pct = crosstab_counts.div(crosstab_counts.sum(axis=0), axis=1) * 100
@@ -346,7 +463,15 @@ def plot_cluster_violinplot(
     for n, cluster in enumerate(clusts):
         cdata = adata[adata.obs[clusters] == cluster]
         plot_violinplot(
-            cdata, group, markers, sf[0, n], useStripPlot=False, palette=cols.to_list()
+            cdata,
+            group,
+            markers,
+            sf[0, n],
+            useStripPlot=False,
+            palette=cols.to_list(),
+            y_blank=True if n > 0 else False,
+            title=cluster,
+            grouped_adjustment=grouped_adjustment,
         )
 
         ax = sf[1, n].subplots(1, 1)
@@ -355,22 +480,25 @@ def plot_cluster_violinplot(
         )
         ax.set_ylim(top=ax.set_ylim()[1] * 1.2)
         ax.tick_params(axis="x", rotation=0)
-
         ax.bar_label(
             ax.containers[0],
             labels=[
                 f"{c:.2f}%\n({crosstab_counts.loc[cluster][n]})"
-                for n, c in enumerate(crosstab_pct.loc[cluster]) if c > 0
+                for n, c in enumerate(crosstab_pct.loc[cluster])
+                if c > 0
             ],
         )
 
-        sf[0, n].suptitle(cluster, size=10)
+        sf[0, n].suptitle(cluster, size=15)
 
-    return
+    f.suptitle(f"{clusters} expression by {group}", size=25)
+    # f.set_layout_engine('constrained')
+
+    return f
 
 
 def plot_cluster_barplots(
-    adata: AnnData,
+    adata: sc.AnnData,
     group: str,
     clusters: str,
     f,
@@ -402,8 +530,33 @@ def plot_cluster_barplots(
     return crosstab_pct
 
 
+def plot_cluster_counts(
+    adata: sc.AnnData,
+    clusters: str,
+    colors: list = None,
+    ax=None,
+):
+    if colors is None:
+        colors = color_gen(adata.obs[clusters].cat.categories)
+    if ax is None:
+        _, ax = plt.subplots(1, 2, figsize=(5, 5), layout="constrained")
+
+    counts = pd.Series(Counter(adata.obs[clusters])).sort_index()
+
+    pd.Series(counts.plot(kind="bar", color=colors, rot=30, ax=ax))
+    ax.set_ylabel("Counts")
+    ax.set_title(f"{clusters} counts")
+    ax.bar_label(
+        ax.containers[0],
+        labels=[f"{c/counts.sum()*100:.2f}%\n({c})" for c in counts if c > 0],
+    )
+    ax.set_ylim(top=ax.get_ylim()[1] * 1.05)
+
+    return
+
+
 def plot_cluster_stackedbarplot(
-    adata: AnnData,
+    adata: sc.AnnData,
     groupby: str,
     clusters: str,
     pct: bool = False,
@@ -411,7 +564,7 @@ def plot_cluster_stackedbarplot(
     ax=None,
 ):
     if colors is None:
-        colors = color_gen(adata.obs[clusters])
+        colors = color_gen(adata.obs[clusters].cat.categories)
     if ax is None:
         f, ax = plt.subplots(1, 2, figsize=(5, 5), layout="constrained")
 
@@ -452,7 +605,43 @@ def plot_cluster_stackedbarplot(
     return
 
 
-def plot_cluster_riverplot(clusters_1, clusters_2, prefix_1="", prefix_2="", min_flow=50):
+def plot_cluster_trees(
+    adata: sc.AnnData,
+    clusters: str,
+    markers: Iterable[str] = None,
+    threshold=0.05,
+    title: str = None,
+    layer="normalized",
+    **kwargs,
+):
+    if markers is None:
+        f = clustree(
+            adata, clusters, title=title, edge_weight_threshold=threshold, **kwargs
+        )
+    else:
+        print(f"setting X to layer '{layer}'")
+        adata.X = adata.layers[layer].copy()
+
+        if isinstance(markers, str):
+            markers = [markers]
+        for m in tqdm(markers):
+            f = clustree(
+                adata,
+                clusters,
+                title=title,
+                edge_weight_threshold=threshold,
+                node_color_gene=m,
+                node_color_gene_use_raw=False,
+                node_colormap="Reds",
+                show_colorbar=True,
+                **kwargs,
+            )
+    return f
+
+
+def plot_cluster_riverplot(
+    clusters_1, clusters_2, prefix_1="", prefix_2="", min_flow=50
+):
     flow_counts = Counter(zip(clusters_1, clusters_2))
     flow_counts = {k: v for k, v in flow_counts.items() if v >= min_flow}
 
@@ -476,13 +665,16 @@ def plot_cluster_riverplot(clusters_1, clusters_2, prefix_1="", prefix_2="", min
         )
     )
 
-    fig.update_layout(title=f"Riverplot Comparison of `{clusters_1.name}` and `{clusters_2.name}`", font_size=12)
+    fig.update_layout(
+        title=f"Riverplot Comparison of `{clusters_1.name}` and `{clusters_2.name}`",
+        font_size=12,
+    )
     fig.show()
 
 
 def plot_cluster_silhouette(
-    adata: AnnData,
-    obs_key: str="leiden",
+    adata: sc.AnnData,
+    obs_key: str = "leiden",
     figsize=(10, 6),
     uns_key={"avg": "silhouette_avg", "score": "silhouette_scores"},
 ):
@@ -531,7 +723,7 @@ def plot_cluster_silhouette(
 
 
 def plot_c2c(
-    adata: AnnData,
+    adata: sc.AnnData,
     key: str,
     pval: float = 0.05,
     top_n: int = 20,
@@ -627,6 +819,7 @@ def plot_c2c(
 
         # Create legend elements
         from matplotlib.lines import Line2D
+
         legend_elements = []
         for i, label in enumerate(size_labels):
             if i < len(size_bins):

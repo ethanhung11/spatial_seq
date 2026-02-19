@@ -4,10 +4,13 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
-from anndata import AnnData
+import mygene
 import scanpy as sc
 import scanpy.external as sce
+import harmonypy
+import scib
 import scvi
+import scipy
 import lightning.pytorch as pl
 from doubletdetection import BoostClassifier
 from pacmap import LocalMAP
@@ -17,8 +20,68 @@ import rpy2.robjects as ro
 from .R import get_converter, R_preload
 
 
+def Convert_Genes(adata: sc.AnnData | Iterable[sc.AnnData]):
+    """
+    Converts gene names based from mygene queries. Can pull from a single AnnData or a dictionary of AnnData `var_names`.
+    """
+
+    # typechecks
+    if isinstance(adata, sc.AnnData):
+        genes = adata.var_names
+    elif isinstance(adata, dict):
+        genes = list(set([i for key in adata for i in adata[key].var_names]))
+    else:
+        TypeError("must be an AnnData or dict[AnnData] object")
+
+    # query gene mapping
+    mg = mygene.MyGeneInfo()
+    res = mg.querymany(
+        genes,
+        scopes=["symbol", "alias", "ensembl.gene"],
+        fields=["symbol", "name", "entrezgene", "alias"],
+        species="mouse",
+        as_dataframe=True,
+    )
+
+    # finalize mapping based on best score with a valid symbol
+    res = res.sort_values("_score")
+    res = res[~res["symbol"].isna()]
+    res = res.loc[~res.index.duplicated(keep="first"), :]
+    mapping = pd.DataFrame(res[~res["symbol"].isna()]).to_dict()["symbol"]
+
+    # convert by mapping genes then summing duplicated genes
+    def convert_genes_from_mapping(adata, gene_mapping):
+        # Converts all gene from mappings and remove duplicate genes.
+        adata.var_names = [gene_mapping.get(gene, gene) for gene in adata.var_names]
+        unique_genes, inverse = np.unique(adata.var_names, return_inverse=True)
+
+        X_dense = adata.X.toarray() if hasattr(adata.X, "toarray") else adata.X
+        summed_X = np.zeros((adata.shape[0], len(unique_genes)))
+
+        for i, gene_idx in enumerate(tqdm(inverse)):
+            summed_X[:, gene_idx] += X_dense[:, i]
+
+        adata_new = adata[:, : len(unique_genes)].copy()
+        adata_new.X = scipy.sparse.csc_matrix(summed_X)
+        adata_new.var_names = unique_genes
+        return adata_new
+
+    if isinstance(adata, sc.AnnData):
+        convert_genes_from_mapping(adata, mapping)
+        adata.var_names_make_unique("_FAIL_")
+        assert np.all(~adata.var_names.str.contains("_FAIL_"))
+    elif isinstance(adata, dict):
+        for key in adata:
+            print(f"converting {key}")
+            adata[key] = convert_genes_from_mapping(adata[key], mapping)
+            adata[key].var_names_make_unique("_FAIL_")
+            assert np.all(~adata[key].var_names.str.contains("_FAIL_"))
+
+    return adata
+
+
 def Filter_QC(
-    adata: AnnData,
+    adata: sc.AnnData,
     GenePerCell: int = 250,
     CountPerCell: int = 500,
     CellPerGene: int = 10,
@@ -39,17 +102,18 @@ def Filter_QC(
 
 
 def Filter_GeneGroup(
-    adata: AnnData,
+    adata: sc.AnnData,
     key: str = "mito",
-    marker: str = "mt",
-    verbose: bool = False,
+    pat: str = "^mt",
+    regex: bool = True,
+    verbose: bool = True,
     perc_threshold: float = None,
 ):
     if key is None:
         sc.pp.calculate_qc_metrics(adata, inplace=True, percent_top=[20])
     else:
         # assign gene group
-        adata.var[key] = adata.var_names.str.startswith(marker)
+        adata.var[key] = adata.var_names.str.contains(pat, regex=regex)
 
         # calculate & save metrics
         sc.pp.calculate_qc_metrics(
@@ -58,18 +122,19 @@ def Filter_GeneGroup(
 
     # filter
     if perc_threshold is not None:
-        thresholded = adata.obs[f"pct_counts_{key}"] <= perc_threshold
+        pass_threshold = adata.obs[f"pct_counts_{key}"] <= perc_threshold
         if verbose is True:
+            removed = adata.shape[0] - np.sum(pass_threshold)
             print(
-                f"Cells with >{perc_threshold}% {key} genes: {adata.shape[0] - np.sum(thresholded)} ({(adata.shape[0] - np.sum(thresholded)) / adata.shape[0] * 100:.2f}%)"
+                f"Cells with >{perc_threshold}% {key} genes: {removed} ({removed / adata.shape[0] * 100:.2f}%)"
             )
-        adata = adata[thresholded]
+        adata = adata[pass_threshold]
 
     return adata
 
 
 def Filter_Doublet(
-    adata: AnnData,
+    adata: sc.AnnData,
     method: Literal[
         "doubletdetection", "scrublet", "scDblFinder", "DoubletFinder", "SOLO"
     ] = "doubletdetection",
@@ -104,8 +169,7 @@ def Filter_Doublet(
             tmp = adata.copy()
             del tmp.uns
             ro.globalenv["sce"] = tmp
-            ro.r(
-                """
+            ro.r("""
             library(scater)
             library(scDblFinder)
             library(BiocParallel)
@@ -113,8 +177,7 @@ def Filter_Doublet(
             sce <- scDblFinder(sce)
             doublet_score <- sce$scDblFinder.score
             doublet_class <- sce$scDblFinder.class
-            """
-            )
+            """)
             print(pd.Series(ro.globalenv["doublet_class"]))
             adata.obs["predicted_doublet"] = (
                 pd.Series(ro.globalenv["doublet_class"])
@@ -130,8 +193,7 @@ def Filter_Doublet(
             del tmp.uns
             ro.globalenv["sce"] = tmp
             ro.globalenv["multipletRate"] = multipletRate
-            ro.r(
-                """
+            ro.r("""
             library(scater)
             library(Seurat)
             library(dplyr)
@@ -183,8 +245,7 @@ def Filter_Doublet(
             colnames(data@meta.data)[grepl('DF.classifications.*', colnames(data@meta.data))] <- "doublet_finder"
             
             doublets <- data@meta.data$doublet_finder
-            """
-            )
+            """)
 
             adata.obs["predicted_doublet"] = (
                 pd.Series(ro.globalenv["doublets"])
@@ -226,8 +287,10 @@ def Filter_Doublet(
 
 
 def Normalize(
-    adata: AnnData | List[AnnData], kind: Literal["log1p", "mnn"] = "log1p", **kwargs
-) -> AnnData:
+    adata: sc.AnnData | List[sc.AnnData],
+    kind: Literal["log1p", "mnn"] = "log1p",
+    **kwargs,
+) -> sc.AnnData:
     if type(adata) is list:
         adata = sc.concat(adata, join="outer")
     if "methods" not in adata.uns:
@@ -254,13 +317,13 @@ def Normalize(
 
 
 def FindVariableGenes(
-    adata: AnnData | List[AnnData],
+    adata: sc.AnnData | List[sc.AnnData],
     kind: Literal[
         "seurat", "seurat_v3", "seurat_v3_paper", "cell_ranger", "pearson", "deviant"
     ] = "seurat",
     batch_column: str = None,
     n_features=2000,
-) -> AnnData:
+) -> sc.AnnData:
     print("Finding HVGs...")
 
     if type(adata) is list:
@@ -301,12 +364,10 @@ def FindVariableGenes(
             tmp = adata.copy()
             del tmp.uns
             ro.globalenv["sce"] = tmp
-            ro.r(
-                """
+            ro.r("""
             library(scry)
             devianceFeatureSelection(sce, assay='X')
-            """
-            )
+            """)
             result = ro.r("rowData(sce)$binomial_deviance").T
 
         idx = result.var["binomial_deviance"].argsort()[-n_features, :]
@@ -324,45 +385,45 @@ def FindVariableGenes(
 
 
 def PCA(
-    adata: AnnData,
+    adata: sc.AnnData,
     gene_mask: str = "highly_variable",
-    key: str = "PCA_hvg",
+    key: str = "PCA-hvg",
     layer: str = "normalized",
+    obsm: str = None,
     comp: int = 50,
-) -> AnnData:
+) -> sc.AnnData:
     print(
         f"Staring PCA with gene mask {gene_mask} at {comp} comps, saved at .obsm[{key}]"
     )
 
-    sc.pp.pca(adata, n_comps=comp, mask_var=gene_mask, layer=layer, key_added=key)
+    sc.pp.pca(
+        adata, n_comps=comp, mask_var=gene_mask, layer=layer, obsm=obsm, key_added=key
+    )
     return adata
 
 
 def Integrate(
-    adata: AnnData,
+    adata: sc.AnnData,
     batch_column: str,
     gene_mask: str = "highly_variable",
     pca_key: str = "PCA_hvg",
     kind: Literal["harmony", "scvi", "scanorama", "seurat"] = "harmony",
     integration_key: str = "integrated",
-    scvi_params={"save_model": True, "model_directory": None},
+    scvi_params={"save_model": False, "model_directory": None},
+    scanvi_params={"label_column": None},
+    verbose=True,
     **kwargs,
-) -> AnnData:
+) -> sc.AnnData:
     print(f"Integrating by Column {batch_column}: {adata.obs[batch_column].unique()}")
     if gene_mask is not None:
-        assert "hvg" in adata.uns
+        assert gene_mask in adata.var.columns
     if "methods" not in adata.uns:
         adata.uns["methods"] = {}
 
     elif kind == "harmony":
-        sce.pp.harmony_integrate(
-            adata,
-            key=batch_column,
-            basis=pca_key,
-            max_iter_harmony=50,
-            adjusted_basis=integration_key,
-            **kwargs,
-        )
+        adata.obsm[integration_key] = harmonypy.run_harmony(
+            adata.obsm[pca_key], adata.obs, batch_column, verbose=verbose, **kwargs
+        ).Z_corr
 
     elif kind == "scanorama":
         sce.pp.scanorama_integrate(
@@ -370,10 +431,13 @@ def Integrate(
             key=batch_column,
             basis=pca_key,
             adjusted_basis=integration_key,
+            verbose=verbose,
             **kwargs,
         )
 
     elif kind == "scvi":
+        assert "counts" in adata.layers
+
         if gene_mask is not None:
             input_adata = adata[:, adata.var[gene_mask]].copy()
         else:
@@ -385,13 +449,14 @@ def Integrate(
         model = scvi.model.SCVI(input_adata, **kwargs)
         model.train(
             accelerator="cpu",
-            strategy=pl.strategies.DDPStrategy(
-                timeout=timedelta(days=2), find_unused_parameters=True
-            ),
+            # strategy=pl.strategies.DDPStrategy(
+            #     timeout=timedelta(days=2), find_unused_parameters=True
+            # ),
             early_stopping=True,
+            enable_model_summary=verbose,
         )
 
-        if scvi_params["save_model"] is True:
+        if scvi_params is not None and scvi_params["save_model"] is True:
             model.save(scvi_params["model_directory"] / "model")
             input_adata.write(scvi_params["model_directory"] / "input.h5ad")
 
@@ -404,8 +469,7 @@ def Integrate(
             del subset.uns
 
             ro.globalenv["sce"] = subset
-            ro.r(
-                """
+            ro.r("""
             seurat <- as.Seurat(sce, data = NULL)
             seurat <- RenameAssays(seurat, "originalexp", "RNA")
             counts <- GetAssayData(seurat, slot = "counts")
@@ -413,25 +477,25 @@ def Integrate(
             seurat <- subset(seurat, cells = colnames(counts)[colSums(counts) > 0])
             seurat <- subset(seurat, features = rownames(counts)[rowSums(counts) > 0])
             seurat <- SCTransform(seurat)
-            """
-            )
+            """)
 
             ro.globalenv["batch_key"] = batch_column
-            ro.r(
-                """
+            ro.r("""
             batch_list <- SplitObject(seurat, split.by = batch_key)
             anchors <- FindIntegrationAnchors(batch_list, anchor.features = rownames(seurat))
             integrated <- IntegrateData(anchors)
             integrated_expr <- GetAssayData(integrated)
             integrated_expr <- integrated_expr[rownames(seurat), colnames(seurat)]
             integrated_expr <- t(integrated_expr)
-            """
-            )
+            """)
             subset = ro.globalenv["integrated_expr"]
             adata.obsm[integration_key] = subset.X
 
     elif kind == "scanvi":
-        raise NotImplementedError
+        assert scanvi_params is not None and scanvi_params["label_col"] is not None
+        scib.integration.scanvi(
+            adata, batch=batch_column, labels=scanvi_params["label_col"], hvg=gene_mask
+        )
 
     adata.uns["methods"]["integration"] = kind
 
@@ -439,13 +503,14 @@ def Integrate(
 
 
 def Visualize(
-    adata: AnnData,
+    adata: sc.AnnData,
     key: str = None,
-    umap=True,
-    input_key: str = "integrated",
+    umap: bool = True,
+    obsm: str = "integrated",
     neighbor_method: Literal["umap_ann", "bbknn"] = "umap_ann",
-    localmap=True,
-    show=True,
+    localmap: bool = True,
+    show: bool = True,
+    random_state: int = 0,
     **kwargs,
 ):
     if "methods" not in adata.uns:
@@ -461,24 +526,33 @@ def Visualize(
     if umap is True:
         print("Starting UMAP...")
         if neighbor_method == "umap_ann":
-            sc.pp.neighbors(adata, use_rep=input_key, key_added=neighbor_key, **kwargs)
-        elif neighbor_method == "bbknn":
-            sc.external.pp.bbknn(
-                adata, use_rep=input_key, key_added=neighbor_key, **kwargs
+            sc.pp.neighbors(
+                adata,
+                use_rep=obsm,
+                key_added=neighbor_key,
+                random_state=random_state,
+                **kwargs,
             )
+        elif neighbor_method == "bbknn":
+            sc.external.pp.bbknn(adata, use_rep=obsm, key_added=neighbor_key, **kwargs)
         adata.uns["methods"]["neighbors"] = neighbor_method
-        sc.tl.umap(adata, key_added=f"UMAP{key}", neighbors_key=neighbor_key)
+        sc.tl.umap(
+            adata,
+            key_added=f"UMAP{key}",
+            neighbors_key=neighbor_key,
+            random_state=random_state,
+        )
         if show is True:
             sc.pl.embedding(adata, basis=f"UMAP{key}")
 
     if localmap is True:
         print("Starting LocalMAP...")
         lm = LocalMAP(**kwargs)
-        if input_key is None:
+        if obsm is None:
             adata.obsm[f"LocalMAP{key}"] = lm.fit_transform(adata.X, init="pca")
-        elif input_key:
+        elif obsm:
             adata.obsm[f"LocalMAP{key}"] = lm.fit_transform(
-                adata.obsm[input_key], init="pca"
+                adata.obsm[obsm], init="pca"
             )
         if show is True:
             sc.pl.embedding(adata, basis=f"LocalMAP{key}")
@@ -487,13 +561,13 @@ def Visualize(
 
 
 def Cluster(
-    adata: AnnData,
+    adata: sc.AnnData,
     obs_key: str = "leiden",
     resolutions: Iterable = np.arange(5, 16) / 10,
     neighbor_key: str = "neighbors",
     random_state: int = 123,
 ):
-    for res in tqdm(resolutions):
+    for res in tqdm(resolutions, desc="Clustering"):
         try:
             sc.tl.leiden(
                 adata,
@@ -509,7 +583,7 @@ def Cluster(
 
 
 def Silhouette(
-    adata: AnnData,
+    adata: sc.AnnData,
     obsm_key="integrated",
     obs_key="leiden",
     uns_key="silhouette",

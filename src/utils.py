@@ -8,13 +8,14 @@ from time import time, ctime
 from datetime import timedelta
 
 # single cell
+from gseapy import Msigdb
 import scanpy as sc
 from geosketch import gs
 import rpy2.robjects as ro
 from single_cell.R import R_preload, get_converter
 
 
-def stopwatch(taskname: str = "", start=time(), mode: Literal[0, 1, 2] = 0):
+def stopwatch(taskname: str = "", start=time(), mode: Literal[-1, 0, 1] = 0):
     if mode == 0:
         print(
             (
@@ -24,11 +25,35 @@ def stopwatch(taskname: str = "", start=time(), mode: Literal[0, 1, 2] = 0):
         )
     elif mode == 1:
         print(f"finished {taskname} in {timedelta(seconds=time()-start)}\n")
-    elif mode == 2:
+    elif mode == -1:
         pass
     else:
-        raise ValueError("valid modes only include 0, 1, or 2")
+        raise ValueError("valid modes only include -1, 0, or 1")
     return time()
+
+
+
+def rename_uns(adata, pat, prefix=None, suffix=None,
+                replace=None, filter=None):
+    if (prefix or suffix) and replace:
+        raise ValueError("Use prefix/suffix OR replace.")
+    if not (prefix or suffix or replace):
+        raise ValueError("Nothing to do.")
+
+    for k in list(adata.uns.keys()):
+        if bool(re.search(pat, k)) and (filter is None or not bool(re.search(filter, k))):
+            if replace:
+                new = re.sub(pat, replace, k)
+            else:
+                new = f"{prefix or ''}{k}{suffix or ''}"
+
+            if new != k and not(new in adata.uns):
+                print(f"renamed in uns: {k} --> {new}")
+                adata.uns[new] = adata.uns[k].copy()
+                del adata.uns[k]
+
+    return True
+
 
 def rename_obsm(adata, pat, prefix=None, suffix=None,
                 replace=None, filter=None):
@@ -52,26 +77,28 @@ def rename_obsm(adata, pat, prefix=None, suffix=None,
 
     return True
 
-def rename_uns(adata, pat, prefix=None, suffix=None,
+
+def rename_obsp(adata, pat, prefix=None, suffix=None,
                 replace=None, filter=None):
     if (prefix or suffix) and replace:
         raise ValueError("Use prefix/suffix OR replace.")
     if not (prefix or suffix or replace):
         raise ValueError("Nothing to do.")
 
-    for k in list(adata.uns.keys()):
+    for k in list(adata.obsp.keys()):
         if bool(re.search(pat, k)) and (filter is None or not bool(re.search(filter, k))):
             if replace:
                 new = re.sub(pat, replace, k)
             else:
                 new = f"{prefix or ''}{k}{suffix or ''}"
 
-            if new != k and not(new in adata.uns):
-                print(f"renamed in uns: {k} --> {new}")
-                adata.uns[new] = adata.uns[k].copy()
-                del adata.uns[k]
+            if new != k and not(new in adata.obsp):
+                print(f"renamed in obsp: {k} --> {new}")
+                adata.obsp[new] = adata.obsp[k].copy()
+                del adata.obsp[k]
 
     return True
+
 
 def rename_varm(adata, pat, prefix=None, suffix=None,
                 replace=None, filter=None):
@@ -80,7 +107,7 @@ def rename_varm(adata, pat, prefix=None, suffix=None,
     if not (prefix or suffix or replace):
         raise ValueError("Nothing to do.")
     
-    for k in list(adata.uns.keys()):
+    for k in list(adata.varm.keys()):
         if bool(re.search(pat, k)) and (filter is None or not bool(re.search(filter, k))):
             if replace:
                 new = re.sub(pat, replace, k)
@@ -94,26 +121,22 @@ def rename_varm(adata, pat, prefix=None, suffix=None,
 
     return True
 
-def rename_obsp(adata, pat, prefix=None, suffix=None,
-                replace=None, filter=None):
-    if (prefix or suffix) and replace:
-        raise ValueError("Use prefix/suffix OR replace.")
-    if not (prefix or suffix or replace):
-        raise ValueError("Nothing to do.")
 
-    for k in list(adata.uns.keys()):
-        if bool(re.search(pat, k)) and (filter is None or not bool(re.search(filter, k))):
-            if replace:
-                new = re.sub(pat, replace, k)
-            else:
-                new = f"{prefix or ''}{k}{suffix or ''}"
+def clear_obs(adata: sc.AnnData, pat: str):
+    print(
+        "deleted from `obs`: ",
+        adata.obs.columns[adata.obs.columns.str.contains(pat, regex=True)],
+    )
+    adata.obs = adata.obs.loc[:, ~adata.obs.columns.str.contains(pat, regex=True)]
 
-            if new != k and not(new in adata.obsp):
-                print(f"renamed in obsp: {k} --> {new}")
-                adata.obsp[new] = adata.obsp[k].copy()
-                del adata.obsp[k]
 
-    return True
+def clear_var(adata: sc.AnnData, pat: str):
+    print(
+        "deleted from `var`: ",
+        adata.var.columns[adata.var.columns.str.contains(pat)],
+    )
+    adata.var = adata.var.loc[:, ~adata.var.columns.str.contains(pat)]
+
 
 def clear_uns(adata: sc.AnnData, pat: str, filter: str=None):
     for key in pd.Series(adata.uns.keys()):
@@ -136,20 +159,12 @@ def clear_obsp(adata: sc.AnnData, pat: str, filter: str=None):
             del adata.obsp[key]
 
 
-def clear_obs(adata: sc.AnnData, pat: str):
-    print(
-        "deleted from `obs`: ",
-        adata.obs.columns[adata.obs.columns.str.contains(pat)],
-    )
-    adata.obs = adata.obs.loc[:, ~adata.obs.columns.str.contains(pat)]
+def clear_varm(adata: sc.AnnData, pat: str, filter: str=None):
+    for key in pd.Series(adata.varm.keys()):
+        if bool(re.search(pat, key)) and (filter is None or not bool(re.search(filter, key))):
+            print("deleted from `varm`: ", key)
+            del adata.varm[key]
 
-
-def clear_var(adata: sc.AnnData, pat: str):
-    print(
-        "deleted from `var`: ",
-        adata.var.columns[adata.var.columns.str.contains(pat)],
-    )
-    adata.var = adata.var.loc[:, ~adata.var.columns.str.contains(pat)]
 
 
 def clear_adata(adata, search, filter=None):
@@ -169,14 +184,8 @@ def clear_adata(adata, search, filter=None):
         clear_var(adata, term)
         clear_uns(adata, term, filter)
         clear_obsm(adata, term, filter)
-        for key in list(adata.obsp.keys()):
-            if term in key:
-                print("deleted from `obsp`: ", key)
-                del adata.obsp[key]
-        for key in list(adata.varm.keys()):
-            if term in key:
-                print("deleted from `varm`: ", key)
-                del adata.varm[key]
+        clear_obsp(adata, term, filter)
+        clear_varm(adata, term, filter)
         print("\n")
 
 
@@ -200,6 +209,13 @@ def generate_barcodes(
     ) as f:
         valid_barcodes = [line.strip() for line in f]
     return random.sample(valid_barcodes, k=N)
+
+
+# def get_msigdb(
+        
+# )
+#     msig = Msigdb()
+#     return
 
 
 def validate_barcodes(

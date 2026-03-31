@@ -46,13 +46,16 @@ if (load.seurat == TRUE) {
   Idents(seurat_object) <- seurat_object$celltype
   timepoints <- levels(seurat_object$timepoint)
   seurat_object$sample[1]
-  # p <- FeaturePlot(subset(seurat_object, sample == seurat_object$sample[1]), "celltype", reduction = "spatial")
-  # ratio <- 4/3 #um per px
-  # p +
-#   geom_circle(aes(x0 = x0, y0 = y0, r = r), data = data.frame(x0 = 7500, y0 = 2000, r = 250/ratio), inherit.aes = FALSE, color = "black", fill = NA, linewidth = 1) +
-#   coord_fixed() +
-#   geom_circle(aes(x0 = x0, y0 = y0, r = r), data = data.frame(x0 = 7500, y0 = 2000, r = 100/ratio), inherit.aes = FALSE, color = "black", fill = NA, linewidth = 1) +
-#   coord_fixed()
+  
+  seurat_s1 <- subset(seurat_object, sample == seurat_object$sample[1])
+  p <- DimPlot(seurat_s1, reduction = "spatial", group.by = "celltype", dims = c(1, 2))
+  
+  ratio <- 4/3 #um per px
+  p +
+    geom_circle(aes(x0 = x0, y0 = y0, r = r), data = data.frame(x0 = 7500, y0 = 2000, r = 250/ratio), inherit.aes = FALSE, color = "black", fill = NA, linewidth = 1) +
+    coord_fixed() +
+    geom_circle(aes(x0 = x0, y0 = y0, r = r), data = data.frame(x0 = 7500, y0 = 2000, r = 100/ratio), inherit.aes = FALSE, color = "black", fill = NA, linewidth = 1) +
+    coord_fixed()
 } else {
   timepoints <- c("pbs", "7dpi", "3wpi")
 }
@@ -78,10 +81,10 @@ names(cellchat.TIMEPOINTS) <- timepoints
 #   cellchat.MERGED <- netClustering(cellchat.MERGED, type = "functional", slot.name = slot)
 # }
 
-cellchat.TIMEPOINTS_MERGED <- readRDS(here(CELLCHAT_DIR, paste0(savename, "_MERGED", ".rds")))
+cellchat.NEURONS_MERGED <- readRDS(here(CELLCHAT_DIR, paste0(savename, "_MERGED", ".rds")))
 
 # show celltypes
-levels(cellchat.TIMEPOINTS_MERGED@idents$joint)
+all.celltypes <- levels(cellchat.TIMEPOINTS_MERGED@idents$joint)
 ```
 
 # Plotting
@@ -292,6 +295,7 @@ for (celltype in relevant.celltypes) {
         mode = "comparison", comparison=comparisons_int[[n]],
         slot.name = slot,
         sources.use = celltype,
+        targets.use = "Fibroblasts",
         measure = m,
         stacked = T,
         do.stat = TRUE,
@@ -302,6 +306,7 @@ for (celltype in relevant.celltypes) {
         mode = "comparison", comparison=comparisons_int[[n]],
         slot.name = slot,
         targets.use = celltype,
+        targets.use = "Fibroblasts",
         measure = m,
         stacked = T,
         do.stat = TRUE,
@@ -351,6 +356,71 @@ for (celltype in relevant.celltypes) {
 ```
 
 ```{r Extras}
+for (celltype in relevant.celltypes) {
+  dir.create(here(PLOT_DIR, celltype), showWarnings = F, recursive = T)
+  
+  # Merged timepoints
+  groupSize <- cellchat.TIMEPOINTS_MERGED@idents[["joint"]] %>% table() %>% as.numeric()
+  
+  for (n in 1:length(comparisons)) {
+    title <- paste(comparisons[[n]], collapse = " vs ")
+  
+    # BARPLOT Δ
+    for (slot in available_slots) {
+      gg1 <- rankNet(
+        cellchat.TIMEPOINTS_MERGED,
+        mode = "comparison", comparison=comparisons_int[[n]],
+        slot.name = slot,
+        sources.use = celltype,
+        targets.use = "Fibroblasts",
+        measure = m,
+        stacked = T,
+        do.stat = TRUE,
+        title = paste(celltype, "outgoing signaling"))
+      
+      gg2 <- rankNet(
+        cellchat.TIMEPOINTS_MERGED,
+        mode = "comparison", comparison=comparisons_int[[n]],
+        slot.name = slot,
+        targets.use = celltype,
+        targets.use = "Fibroblasts",
+        measure = m,
+        stacked = T,
+        do.stat = TRUE,
+        title = paste(celltype, "incoming signaling"))
+      
+      height <- if (slot == "net") 24000 else 6000
+      version <- if (slot == "net") "LR" else "Pathway"
+      ggsave(
+        here(PLOT_DIR, "extras", paste0("FB-Phox2b RankNet", version, "-", title, ".jpg")),
+        plot=gg1 + gg2,
+        width = 2000, height = height, dpi = 300, units="px", limitsize = FALSE)
+    }
+  }
+}
+
+cellchat.MERGED <- mergeCellChat(cellchat.TIMEPOINTS, add.names = names(cellchat.TIMEPOINTS))
+
+gg1 <- netVisual_bubble(
+  cellchat.MERGED,
+  sources.use = celltype,
+  targets.use = "Fibroblasts",
+  comparison = c(1, 2),
+  # max.dataset = 2,
+  # title.name = "Increased signaling in LS",
+  angle.x = 45,
+  remove.isolate = T)
+
+gg2 <- netVisual_bubble(
+  cellchat.TIMEPOINTS[["pbs"]],
+  sources.use = c(celltype),
+  targets.use = c("Fibroblasts"),
+  # comparison = c(1, 2),
+  # angle.x = 45
+)
+
+
+
 dir.create(here(PLOT_DIR, "Neurons Grouped"), showWarnings = F, recursive = T)
 folder.name <- "Neurons Grouped"
 celltype <- "Neurons"
@@ -425,9 +495,16 @@ for (n in 1:length(comparisons)) {
 
 ```{r cellchat plots UNUSED}
 # Celltype scatterplots differential in/outgoing LR pairs
-celltypes.of.interest <- c("OPC", "Astrocytes", "Airway neurons", "Oligodendrocytes", "Excitatory neurons", "Inhibitory neurons", "Neu Phox2b+", "Neu ")
+# celltypes.of.interest <- c("OPC", "Astrocytes", "Airway neurons", "Oligodendrocytes", "Excitatory neurons", "Inhibitory neurons", "Neu Phox2b+", "Neu ")
+celltypes.of.interest <- c("Neu Phox2b+")
+
 # only use if comparing net (not needed for netP)
-all_LR <- unique(unlist(lapply(cellchat.TIMEPOINTS_MERGED@LR, function(x) x$LRsig$interaction_name)))
+slot <- "netP"
+if (slot == "net"){
+  all_LR <- unique(unlist(lapply(cellchat.TIMEPOINTS_MERGED@LR, function(x) x$LRsig$interaction_name)))
+} else {
+  all_LR <- NULL
+}
 
 for (celltype in celltypes.of.interest) {
   for (tp in c(2,3)) {
@@ -435,7 +512,7 @@ for (celltype in celltypes.of.interest) {
       cellchat.TIMEPOINTS_MERGED,
       idents.use = celltype,
       comparison = c(tp, 1),
-      slot.name = "net",
+      slot.name = slot,
       signaling = all_LR,
       top.label = 0.1
     )

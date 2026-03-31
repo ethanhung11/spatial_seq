@@ -3,31 +3,90 @@ authors = ["Ethan H <ethanhung11@gmail.com>"]
 name = "spatial_seq"
 version = "0.1.0"
 channels = ["conda-forge"]
-platforms = ["linux-64"]
+platforms = ["linux-64", "osx-arm64"]
 preview = ["pixi-build"]
 
 [tasks]
 
 [dependencies]
-
-[feature.spagrn]
-channels = ["conda-forge", "bioconda", "nodefaults"]
-
-[feature.spagrn.dependencies]
-setuptools = "==69.5.1"
 python = ">3.8"
-pyscenic = ">=0.12.1,<0.13"
-scanpy = ">=1.10.4,<2"
 jupyter = "*"
-arboreto = "*"
-ctxcore = ">=0.2.0"
-spagrn = "==1.0.7"
+seaborn = "*"
 
-[feature.spagrn.pypi-dependencies]
-hotspotsc = "==1.1.3"
+[feature.utils.dependencies]
+python = "*"
+
+[feature.utils.pypi-dependencies]
+scanpy = "*"
+jupyter = "*"
+nbqa = { version = "*", extras = ["toolchain"] }
+ruff = "*"
+session_info = "*"
+itables = "*"
+
+[feature.scRNA-seq]
+channels = ["conda-forge", "bioconda", "vtraag"]
+
+[feature.scRNA-seq.dependencies]
+python = ">=3.11, <=3.13"
+setuptools = "==69.5.1"
+louvain = "*"
+
+[feature.scRNA-seq.pypi-dependencies]
+matplotlib = "==3.10.8"
+anndata = "==0.12.10"
+scanpy = "==1.12.0"
+anndata2ri = "*"
+mygene = "*"
+doubletdetection = "*"
+harmonypy = "*"
+scanorama = "*"
+scvi-tools = "*"
+scib = "*"
+celltypist = "*"
+pacmap = "*"
+pyucell = "*"
+decoupler = "*"
+omnipath = "*"
+paramiko = "==3.5.1"
+liana = "*"
+pydeseq2 = "*"
+gprofiler-official = "*"
+gseapy = "*"
+geosketch = "*"
+palantir = "*"
+pyclustree = "*"
+plotly = "*"
+plotnine = "*"
+glasbey = "*"
+ipykernel = ">7"
+lxml = "*"
+
+[feature.spatial-seq.dependencies]
+python = ">=3.11, <=3.13"
+
+[feature.spatial-seq.pypi-dependencies]
+squidpy = "*"
+spatialdata = "*"
+spatialdata-io = "*"
+pyqt5 = "*"
+napari-spatialdata = "*"
+hotspotsc = "*"
+
+# [feature.experimental.pypi-dependencies]
+# symphonypy = "*"
+# screcode = "*"
+
+[feature.cellbender.dependencies]
+python = "<3.10"
+pytables = "*"
+
+[feature.cellbender.pypi-dependencies]
+cellbender = { git = "https://github.com/broadinstitute/CellBender", rev = "4334e8966217c3591bf7c545f31ab979cdc6590d" }
 
 [feature.cellcharter]
 channels = ["conda-forge", "pytorch", "nvidia", "bioconda", "nodefaults"]
+platforms = ["linux-64"]
 
 [feature.cellcharter.dependencies]
 python = "3.11.*"
@@ -52,22 +111,18 @@ python = "*"
 [feature.banksy.pypi-dependencies]
 pybanksy = { version = "*", extras = ["all"] }
 
-[feature.scenic]
-channels = ["conda-forge", "bioconda", "nodefaults"]
+[feature.mofa.dependencies]
+python = ">3.8"
 
-[feature.scenic.dependencies]
-setuptools = "==69.5.1"
-python = "==3.10.15"
-pyscenic = ">=0.12.1,<0.13"
-scanpy = ">=1.10.4,<2"
-jupyter = "*"
-
-[feature.cellbender.dependencies]
-python = "<3.10"
-pytables = "*"
-
-[feature.cellbender.pypi-dependencies]
-cellbender = { git = "https://github.com/broadinstitute/CellBender", rev = "4334e8966217c3591bf7c545f31ab979cdc6590d" }
+[feature.mofa.pypi-dependencies]
+decoupler = ">=2.0.0"
+mofax = "*"
+muon = "*"
+omnipath = "*"
+marsilea = "*"
+plotnine = "*"
+liana = "*"
+mofapy2 = "*"
 
 [feature.corneto]
 channels = ["conda-forge", "bioconda", "nodefaults"]
@@ -84,80 +139,37 @@ gurobipy = "*"
 corneto = "*"
 numpy = "<=2.3"
 
-[feature.mofa.dependencies]
-python = ">3.8"
+[feature.scenic]
+channels = ["conda-forge", "bioconda", "nodefaults"]
 
-[feature.mofa.pypi-dependencies]
-decoupler = ">=2.0.0"
-mofax = "*"
-muon = "*"
-omnipath = "*"
-marsilea = "*"
-plotnine = "*"
-liana = "*"
-mofapy2 = "*"
-
-[feature.spatial-seq.dependencies]
-python = ">=3.11"
-
-[feature.spatial-seq.pypi-dependencies]
-pyqt5 = "*"
-spatialdata = "*"
-spatialdata-io = "*"
-napari-spatialdata = "*"
-squidpy = "*"
-hotspotsc = "*"
-
-[feature.scRNA-seq.dependencies]
-python = ">=3.11"
+[feature.scenic.dependencies]
 setuptools = "==69.5.1"
-
-[feature.scRNA-seq.pypi-dependencies]
-anndata = "*"
-anndata2ri = "*"
-scanpy = "*"
-scvi-tools = "*"
-mygene = "*"
-doubletdetection = "*"
-harmonypy = "*"
-celltypist = "*"
-scanorama = "*"
-louvain = "*"
-pacmap = "*"
-pyucell = "*"
-decoupler = "*"
-omnipath = "*"
-liana = "*"
-pydeseq2 = "*"
-gprofiler-official = "*"
-gseapy = "*"
-geosketch = "*"
-palantir = "*"
-pyclustree = "*"
-plotly = "*"
-plotnine = "*"
-glasbey = "*"
-ipykernel = ">7"
-
-[feature.utils.dependencies]
-python = "*"
-
-[feature.utils.pypi-dependencies]
-scanpy = "*"
+python = "==3.10.15"
+pyscenic = ">=0.12.1,<0.13"
+scanpy = ">=1.10.4,<2"
 jupyter = "*"
-nbqa = { version = "*", extras = ["toolchain"] }
-ruff = "*"
 
-[feature.experimental.pypi-dependencies]
-symphonypy = "*"
-scib = "*"
-screcode = "*"
+[feature.spagrn]
+channels = ["conda-forge", "bioconda", "nodefaults"]
+
+[feature.spagrn.dependencies]
+setuptools = "==69.5.1"
+python = ">3.8"
+pyscenic = ">=0.12.1,<0.13"
+scanpy = ">=1.10.4,<2"
+jupyter = "*"
+arboreto = "*"
+ctxcore = ">=0.2.0"
+spagrn = "==1.0.7"
+
+[feature.spagrn.pypi-dependencies]
+hotspotsc = "==1.1.3"
 
 [environments]
+cellbender = { features = ["cellbender"], no-default-feature = true }
 cellcharter = { features = ["cellcharter", "utils"], no-default-feature = true }
 banksy = { features = ["banksy", "utils"], no-default-feature = true }
-scenic = { features = ["scenic", "utils"], no-default-feature = true }
-cellbender = { features = ["cellbender"], no-default-feature = true }
-spagrn = { features = ["spagrn", "utils"], no-default-feature = true }
-main = {features = ["spatial-seq", "scRNA-seq", "utils", "corneto", "experimental"], no-default-feature = true }
+main = { features = ["spatial-seq", "scRNA-seq", "utils", "corneto"], no-default-feature = true }
 mofa = ["mofa", "utils"]
+scenic = { features = ["scenic", "utils"], no-default-feature = true }
+spagrn = { features = ["spagrn", "utils"], no-default-feature = true }

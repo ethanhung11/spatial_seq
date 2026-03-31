@@ -1,8 +1,7 @@
-from typing import Iterable, Literal, Mapping
+from typing import Iterable, Literal
 import os
 import numpy as np
 from tqdm import tqdm
-from pathlib import Path
 
 import scipy
 import scanpy as sc
@@ -12,24 +11,39 @@ import decoupler as dc
 import gseapy as gp
 import pandas as pd
 from .ccc import liana_mouse_resource
-
+from utils import clear_obs
 
 def module_score(
     adata: sc.AnnData,
-    genesets: Mapping[str, Iterable[str]],
-    method: Literal["Seurat", "UCell", "AUCell"] = "Seurat",
-    zscore: bool = True,
+    genesets: dict,
+    collection_name: str,
+    method: str | Literal["Seurat", "UCell", "Decoupler"] = "Seurat",
+    decoupler_method: str | Literal["ULM", "FGSEA", "GSVA", "AUCell", "ORA", "Consensus"] = None,
+    zscore: bool = False,
+    save_obs: bool = False,
 ):
     for name in genesets:
         genesets[name] = pd.Series(genesets[name]).unique()
 
     if method == "Seurat":
-        for name in genesets:
-            sc.tl.score_genes(adata, genesets[name], score_name=f"{name}_Seurat")
+        for name in tqdm(genesets):
+            sc.tl.score_genes(adata, genesets[name], score_name=f"{name}-Seurat")
+        
+        pat = f"-{method}|".join(list(genesets.keys())) + f"-{method}"
+        adata.obsm[f"{collection_name}-{method}"] = adata.obs.loc[:,adata.obs.columns.str.contains(pat, regex=True)]
+        clear_obs(adata, pat)
+
     elif method == "UCell":
-        uc.compute_ucell_scores(adata, signatures=genesets)
-    elif method == "AUCell":
-        input_genesets = pd.concat(
+        uc.compute_ucell_scores(adata, signatures=genesets, suffix="-UCell")
+        pat = f"-{method}|".join(list(genesets.keys())) + f"-{method}"
+        adata.obsm[f"{collection_name}-{method}"] = adata.obs.loc[:,adata.obs.columns.str.contains(pat, regex=True)]
+        clear_obs(adata, pat)
+
+    elif method == "Decoupler":
+        assert decoupler_method is not None
+        method = decoupler_method
+
+        genesets = pd.concat(
             [
                 pd.DataFrame({key: genesets[key]}).melt(
                     var_name="source", value_name="target"
@@ -37,17 +51,52 @@ def module_score(
                 for key in genesets
             ]
         )
-        input_genesets = input_genesets.drop_duplicates().reset_index(drop=True)
+        genesets = genesets.drop_duplicates().reset_index(drop=True)
+        genesets['source'] = genesets['source'] + f"-{method}"
 
-        dc.mt.aucell(data=adata, net=input_genesets, layer="normalized", verbose=True)
-        for name in adata.obsm["score_aucell"]:
-            adata.obs[f"{name}_AUCell"] = adata.obsm["score_aucell"][name]
-        del adata.obsm["score_aucell"]
+        if method == "ULM":
+            dc.mt.ulm(data=adata, net=genesets, layer="normalized", verbose=True)
+            adata.obsm[f"{collection_name}-{method}"] = adata.obsm["score_ulm"]
+            adata.obsm[f"{collection_name}-{method}_padj"] = adata.obsm["padj_ulm"]
+            del adata.obsm["score_ulm"], adata.obsm["padj_ulm"]
+        elif method == "FGSEA":
+            dc.mt.gsea(data=adata, net=genesets, layer="normalized", verbose=True)
+            adata.obsm[f"{collection_name}-{method}"] = adata.obsm["score_gsea"]
+            adata.obsm[f"{collection_name}-{method}_padj"] = adata.obsm["padj_gsea"]
+            del adata.obsm["score_gsea"], adata.obsm["padj_gsea"]
+        elif method == "GSVA":
+            dc.mt.gsva(data=adata, net=genesets, layer="normalized", verbose=True)
+            adata.obsm[f"{collection_name}-{method}"] = adata.obsm["score_gsva"]
+            del adata.obsm["score_gsva"]
+        elif method == "AUCell":
+            dc.mt.aucell(data=adata, net=genesets, layer="normalized", verbose=True)
+            adata.obsm[f"{collection_name}-{method}"] = adata.obsm["score_aucell"]
+            del adata.obsm["score_aucell"]
+        elif method == "ORA":
+            dc.mt.ora(data=adata, net=genesets, layer="normalized", verbose=True)
+            adata.obsm[f"{collection_name}-{method}"] = adata.obsm["score_ora"]
+            del adata.obsm["score_ora"]
+        elif method == "Consensus":
+            dc.mt.consensus(data=adata, net=genesets, layer="normalized", verbose=True)
+            # adata.obsm[f"{collection_name}-{method}"] = adata.obsm["score_consensus"]
+            # del adata.obsm["score_consensus"]
+        else:
+            raise ValueError("Not a valid method!")          
+
+    else:
+        raise ValueError("Not a valid method!")
 
     if zscore is True:
         for name in genesets:
             col = f"{name}_{method}"
-            adata.obs[col] = scipy.stats.zscore(adata.obs[col])
+            adata.obs[col + "_z"] = scipy.stats.zscore(adata.obs[col])
+
+    if save_obs is True:
+        adata.obs = adata.obs.join(adata.obsm[f"{collection_name}-{method}"])
+        # pat = f"-{method}|".join(list(genesets.keys())) + f"-{method}"
+        # clear_obs(adata, pat)
+        del adata.obsm[f"{collection_name}-{method}"]
+
     return adata
 
 
@@ -181,60 +230,40 @@ def GO_Enrich(
     return GO_enrichments
 
 
-def decoupler_gsea(
-    adata: sc.AnnData,
-    name: str,
-    type: Literal["ULM", "FGSEA", "ORA", "GSVA", "AUCell"] = "ULM",
-    geneset=None,
-    remove_prefix=False,
-):
-    if isinstance(geneset, str):
-        assert Path(geneset).exists()
-        geneset = dc.pp.read_gmt(geneset)
-        if remove_prefix is True:
-            prefixes = geneset.source.str.split("_", expand=True)[0].unique().tolist()
-            for pre in prefixes:
-                geneset.source = geneset.source.str.replace(f"{pre}_", "")
-
-    if type == "ULM":
-        dc.mt.ulm(data=adata, net=geneset, layer="normalized", verbose=True)
-        adata.obsm[f"{name}_score_ulm"] = adata.obsm["score_ulm"]
-        adata.obsm[f"{name}_padj_ulm"] = adata.obsm["padj_ulm"]
-        del adata.obsm["score_ulm"], adata.obsm["padj_ulm"]
-    elif type == "FGSEA":
-        dc.mt.gsea(data=adata, net=geneset, layer="normalized", verbose=True)
-        adata.obsm[f"{name}_score_gsea"] = adata.obsm["score_gsea"]
-        adata.obsm[f"{name}_padj_gsea"] = adata.obsm["padj_gsea"]
-        del adata.obsm["score_gsea"], adata.obsm["padj_gsea"]
-    elif type == "GSVA":
-        dc.mt.gsva(data=adata, net=geneset, layer="normalized", verbose=True)
-        adata.obsm[f"{name}_score_gsva"] = adata.obsm["score_gsva"]
-        del adata.obsm["score_gsva"]
-    elif type == "AUCell":
-        dc.mt.aucell(data=adata, net=geneset, layer="normalized", verbose=True)
-        adata.obsm[f"{name}_score_aucell"] = adata.obsm["score_aucell"]
-        del adata.obsm["score_aucell"]
-    elif type == "PRA":
-        dc.mt.ora(data=adata, net=geneset, layer="normalized", verbose=True)
-        adata.obsm[f"{name}_score_ora"] = adata.obsm["score_ora"]
-        del adata.obsm["score_ora"]
-    else:
-        raise ValueError("Not a valid method!")
-
-    return adata
-
-
 def gseapy_gsea(
     adata: sc.AnnData,
     groupby: str,
-    genesets: list,
+    genesets: Iterable,
     method: Literal["ssgea", "gsea", "prerank", "gsva"] = "gsea",
     threads: int = 10,
     seed: int = 6,
+    one_condition = None,
     **kwargs,
 ):
     if len(adata.obs[groupby].unique()) < 2:
         return ValueError(f"Group '{groupby}' does not have at least 2 groups!")
+
+    elif one_condition is not None:
+        first_idx = np.where(adata.obs[groupby] == one_condition)[0][0]
+        order = np.arange(np.shape(adata)[0])
+        order[first_idx], order[0] = order[0], order[first_idx]
+        tmp = adata[order]
+
+        out = gseapy_helper(
+            tmp,
+            genesets,
+            method,
+            groupby,
+            group,
+            threads,
+            seed,
+            **kwargs,
+        )
+        result = out.res2d
+        names = result["Term"].str.split("__", expand=True)
+        result["Collection"] = names[0]
+        result["Term"] = names[1]
+        gsea_results = result
 
     else:
         gsea_results = {}

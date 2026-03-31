@@ -58,7 +58,7 @@ for (g in groups) {
   
   subset_seurat <- subset(seurat_object, subset = timepoint == g)
   cellchat <- prepCellChat(
-    subset(seurat_object, subset = timepoint == g),
+    subset_seurat,
     "celltype",
     db=neuronChatDB, # input for custom DB
     spatial=TRUE,

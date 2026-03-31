@@ -1,7 +1,11 @@
-library(sceasy)
-library(reticulate)
-library(Seurat)
+# Rscript src/scripts/Seurat2h5ad.R &> ./outs/seurat_h5ad_conversion.out
+
 library(here)
+Sys.setenv(RETICULATE_PYTHON = here(".pixi/envs/main/bin/python"))
+library(reticulate)
+library(sceasy)
+library(Seurat)
+
 DATADIR <- here("data", "processed", "external")
 obj_name <- "analyzed"
 

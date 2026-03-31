@@ -1,8 +1,9 @@
 from typing import Literal, List, Iterable
-from datetime import timedelta
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
+import seaborn as sns
+import matplotlib.pyplot as plt
 
 import mygene
 import scanpy as sc
@@ -11,9 +12,8 @@ import harmonypy
 import scib
 import scvi
 import scipy
-import lightning.pytorch as pl
 from doubletdetection import BoostClassifier
-from pacmap import LocalMAP
+from pacmap import LocalMAP, PaCMAP
 from sklearn.metrics import silhouette_samples, silhouette_score
 
 import rpy2.robjects as ro
@@ -420,9 +420,9 @@ def Integrate(
     if "methods" not in adata.uns:
         adata.uns["methods"] = {}
 
-    elif kind == "harmony":
+    if kind == "harmony":
         adata.obsm[integration_key] = harmonypy.run_harmony(
-            adata.obsm[pca_key], adata.obs, batch_column, verbose=verbose, **kwargs
+            adata.obsm[pca_key], adata.obs, batch_column, verbose=verbose, max_iter_harmony=50, **kwargs
         ).Z_corr
 
     elif kind == "scanorama":
@@ -505,10 +505,11 @@ def Integrate(
 def Visualize(
     adata: sc.AnnData,
     key: str = None,
-    umap: bool = True,
     obsm: str = "integrated",
+    umap: bool = True,
     neighbor_method: Literal["umap_ann", "bbknn"] = "umap_ann",
     localmap: bool = True,
+    pacmap: bool = False,
     show: bool = True,
     random_state: int = 0,
     **kwargs,
@@ -557,30 +558,81 @@ def Visualize(
         if show is True:
             sc.pl.embedding(adata, basis=f"LocalMAP{key}")
 
+
+    if pacmap is True:
+        print("Starting PaCMAP...")
+        pm = PaCMAP(**kwargs)
+        if obsm is None:
+            adata.obsm[f"PaCMAP{key}"] = pm.fit_transform(adata.X, init="pca")
+        elif obsm:
+            adata.obsm[f"PaCMAP{key}"] = pm.fit_transform(
+                adata.obsm[obsm], init="pca"
+            )
+        if show is True:
+            sc.pl.embedding(adata, basis=f"PaCMAP{key}")
+
     return adata
 
 
 def Cluster(
     adata: sc.AnnData,
-    obs_key: str = "leiden",
+    neighbor_key: str,
+    cluster_key: str = "leiden",
     resolutions: Iterable = np.arange(5, 16) / 10,
-    neighbor_key: str = "neighbors",
     random_state: int = 123,
+    run_connectivity: bool = True,
+    int_key: str = None,
 ):
+    adata.uns[f"{cluster_key} Info"] = {}
     for res in tqdm(resolutions, desc="Clustering"):
         try:
             sc.tl.leiden(
                 adata,
                 resolution=res,
                 neighbors_key=neighbor_key,
-                key_added=f"{obs_key}_{res}",
+                key_added=f"{cluster_key}_{res}",
                 random_state=random_state,
             )
+            adata.obs[f"{cluster_key}_{res}"] = adata.obs[f"{cluster_key}_{res}"].astype(int).astype("category")
+            adata.uns[f"{cluster_key} Info"][f"{cluster_key}_{res}"] = adata.uns[f"{cluster_key}_{res}"]
+            del adata.uns[f"{cluster_key}_{res}"]
+            
         except Exception as e:
             print(f"{res} failed to run: {e}")
+    
+    if run_connectivity is True:
+        GraphConnectivity(adata, int_key, cluster_key, resolutions)
 
     return adata
 
+
+def GraphConnectivity(
+    adata: sc.AnnData,
+    int_key: str, 
+    cluster_key: str,
+    resolutions: Iterable, 
+    plot: bool = True
+):
+    
+    tmp_adata = sc.pp.neighbors(adata, use_rep=int_key, copy=True)
+    gc_scores = pd.Series(
+        [
+            scib.me.graph_connectivity(tmp_adata, label_key=f"{cluster_key}_{res}")
+            for res in tqdm(resolutions, desc="Calculating graph connectivity")
+        ],
+        index = resolutions
+    )
+
+    if plot is True:
+        sns.lineplot(gc_scores, markers=True, marker='o')
+        plt.ylabel("GC score")
+        plt.xlabel("resolutions")
+        plt.grid(True)
+
+    gc_scores.index = gc_scores.index.astype("str")
+    adata.uns[f"{cluster_key} Info"]["Graph Connectivity"] = gc_scores.to_dict()
+
+    return adata
 
 def Silhouette(
     adata: sc.AnnData,

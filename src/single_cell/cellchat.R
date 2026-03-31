@@ -30,7 +30,7 @@ prepCellChat <- function(
     cellchat <- createCellChat(
       object = seurat.obj[["RNA"]]@data,
       meta = seurat.obj@meta.data,
-      group.by = celltype_cols
+      group.by = celltype_col
     )
   }
   

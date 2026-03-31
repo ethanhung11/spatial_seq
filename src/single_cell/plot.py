@@ -29,9 +29,9 @@ def order_obs(adata: sc.AnnData, col: str, order: Iterable[str]):
 
 def color_gen(groups: pd.Series | Iterable | np.array, name_matched=False):
     n_colors = len(groups)
-    if n_colors > 50:
+    if n_colors > 200:
         raise ValueError(
-            "Cannot have more than 50 colors!\nCheck that you are submitting pd.Series.cat.categories, not the whole pd.Series"
+            "Cannot have more than 200 colors!\nCheck that you are submitting pd.Series.cat.categories, not the whole pd.Series"
         )
     colors = create_palette(palette_size=n_colors)
     if name_matched is True:
@@ -190,7 +190,8 @@ def check_integration(
                     size=size,
                     ax=ax,
                     show=False,
-                    palette=[palette[group]],
+                    # palette=[palette[group]],
+                    palette=palette.tolist(),
                     legend_loc="none"
                 )
                 ax.set_title(group)
@@ -257,7 +258,6 @@ def check_doublets(
 
     return
 
-
 def plot_violinplot(
     adata: sc.AnnData,
     group: str,
@@ -266,16 +266,24 @@ def plot_violinplot(
     layer: str = "normalized",
     useStripPlot: bool = False,
     palette: Iterable = None,
-    title=None,
+    title = None,
+    inner = "box",
     title_fontsize: int = 15,
     y_fontsize: int = 12,
-    x_fontsize: int = 10,
-    xlabel_params={"angle": 60, "align": "right"},
-    bracket_fontsize: int = 12,
+    y_bracket_fontsize: int = 12,
+    y_bracket_offset: float = -0.05,
+    y_bracket_text_offset: float = 0.05,
     y_blank: bool = False,
-    grouped_adjustment=1,
-    x_bracket_params=None,
+    x_fontsize: int = 10,
+    x_params={"angle": 60, "align": "right"},
+    x_bracket_params = None,
+    downscale: float = 1.0
 ):
+
+    title_fontsize /= downscale
+    y_fontsize /= downscale
+    x_fontsize /= downscale
+    y_bracket_fontsize /= downscale
 
     if adata.obs[group].dtype != "category":
         print(f"Converting adata.obs[{group}] to `category` dtype.")
@@ -283,9 +291,6 @@ def plot_violinplot(
     if palette is None and adata.uns.get(f"{group}_colors") is None:
         print("Palette not found! Generating palette.")
         palette = color_gen(adata.obs[group].cat.categories)
-
-    if title is not None:
-        f.suptitle(title, size=title_fontsize)
 
     # Convert markers to flat list for plotting
     is_dict = isinstance(markers, dict)
@@ -300,14 +305,17 @@ def plot_violinplot(
         f, axs = plt.subplots(
             len(flat_markers),
             1,
-            figsize=(n_groups, len(flat_markers)),
+            figsize=(n_groups / downscale, len(flat_markers) / downscale),
         )
 
     if type(axs) is not np.ndarray:
         axs = [axs]
 
+    if title is not None:
+        f.suptitle(title, size=title_fontsize)
+
     # Plot violin plots for each marker
-    for n, m in enumerate(tqdm(flat_markers, desc="Plotting violins")):
+    for n, m in enumerate(tqdm(flat_markers, desc=f"Plotting violins ({title})", smoothing=50/len(flat_markers))):
         sc.pl.violin(
             adata,
             m,
@@ -318,6 +326,7 @@ def plot_violinplot(
             ax=axs[n],
             stripplot=useStripPlot,
             palette=palette,
+            inner=inner,
         )
         if hasattr(axs[n], "legend_") and axs[n].legend_ is not None:
             axs[n].legend_.remove
@@ -333,72 +342,35 @@ def plot_violinplot(
 
     # Add left-side brackets for marker sets if markers is a dictionary
     if is_dict and y_blank is False:
-        trans = f.transFigure
+        print("Generating gene set brackets!")
         idx = 0
         for set_name, set_markers in markers.items():
-            start_ax = axs[idx]
-            end_ax = axs[idx + len(set_markers) - 1]
+            a = idx
+            b = idx + len(set_markers) - 1
 
-            bbox_start = start_ax.get_window_extent().transformed(
-                f.transFigure.inverted()
+            # Add brackets
+            bracket = mpl.patches.ConnectionPatch(
+                xyA=(y_bracket_offset, 1), coordsA=axs[a].transAxes,
+                xyB=(y_bracket_offset, 0), coordsB=axs[b].transAxes,
+                connectionstyle=f"bar,armA={20/downscale:.2f},armB={20/downscale:.2f},fraction=0",
+                linewidth=2, color="black"
             )
-            bbox_end = end_ax.get_window_extent().transformed(f.transFigure.inverted())
+            f.add_artist(bracket)
 
-            y_start = bbox_start.y1 * grouped_adjustment
-            y_end = bbox_end.y0 * grouped_adjustment
-            # if grouped_adjustment:
-            #     y_start -=
-            bracket_x = (
-                start_ax.get_position().x0
-                - (start_ax.get_position().x1 - start_ax.get_position().x0) / n_groups
-            )
+            # Add text
+            f.canvas.draw()
+            top = axs[a].get_position().y1
+            bot = axs[b].get_position().y0
+            f.text(y_bracket_text_offset, (top + bot) / 2, set_name, ha="center", va="center", rotation=90, fontsize=y_bracket_fontsize)
 
-            # Add braclets
-            f.text(
-                bracket_x - 0.015,
-                (y_start + y_end) / 2,
-                set_name,
-                ha="center",
-                va="center",
-                rotation=90,
-                transform=trans,
-                fontsize=bracket_fontsize,
-            )
-            f.add_artist(
-                plt.Line2D(
-                    [bracket_x, bracket_x],
-                    [y_end, y_start],
-                    transform=trans,
-                    color="k",
-                    linewidth=1,
-                )
-            )
-            f.add_artist(
-                plt.Line2D(
-                    [bracket_x, bracket_x + 0.005],
-                    [y_end, y_end],
-                    transform=trans,
-                    color="k",
-                    linewidth=1,
-                )
-            )
-            f.add_artist(
-                plt.Line2D(
-                    [bracket_x, bracket_x + 0.005],
-                    [y_start, y_start],
-                    transform=trans,
-                    color="k",
-                    linewidth=1,
-                )
-            )
             idx += len(set_markers)
 
     # Format x-axis labels on bottom plot
     axs[-1].set_xticklabels(
         axs[-1].get_xticklabels(),
         size=x_fontsize,
-        rotation=xlabel_params.get("angle"),
-        ha=xlabel_params.get("align"),
+        rotation=x_params.get("angle"),
+        ha=x_params.get("align"),
         rotation_mode="anchor",
     )
 
@@ -431,7 +403,7 @@ def plot_violinplot(
 
 
 def plot_cluster_violinplot(
-    adata, group: str, clusters: str, markers, f=None, grouped_adjustment=0.99
+    adata, group: str, clusters: str, markers, f=None, downscale=1.0
 ):
     n_markers = (
         np.sum(len(m) for m in markers.values())
@@ -442,7 +414,7 @@ def plot_cluster_violinplot(
     if f is None:
         # print(n_markers)
         f = plt.figure(
-            figsize=(n_groups * 1.2, n_markers * 1.2 + 3), layout="constrained"
+            figsize=((n_groups * 1.2) / downscale, (n_markers * 1.2 + 3) / downscale), layout="constrained"
         )
 
     clusts = adata.obs[clusters].cat.categories
@@ -450,11 +422,7 @@ def plot_cluster_violinplot(
     sf = f.subfigures(
         2,
         len(clusts),
-        height_ratios=(
-            [3, len(markers) * 1.2]
-            if isinstance(markers, dict)
-            else [len(markers) * 1.2, 3]
-        ),
+        height_ratios=([len(markers) * 1.2, 3]),
     )
 
     crosstab_counts = pd.crosstab(adata.obs[clusters], adata.obs[group])
@@ -470,8 +438,10 @@ def plot_cluster_violinplot(
             useStripPlot=False,
             palette=cols.to_list(),
             y_blank=True if n > 0 else False,
+            y_bracket_offset=-0.2,
+            y_bracket_text_offset=-0.1,
             title=cluster,
-            grouped_adjustment=grouped_adjustment,
+            downscale=downscale
         )
 
         ax = sf[1, n].subplots(1, 1)
@@ -492,7 +462,6 @@ def plot_cluster_violinplot(
         sf[0, n].suptitle(cluster, size=15)
 
     f.suptitle(f"{clusters} expression by {group}", size=25)
-    # f.set_layout_engine('constrained')
 
     return f
 
@@ -588,7 +557,9 @@ def plot_cluster_stackedbarplot(
 
     else:
         # Percentages
-        crosstab_pct = crosstab_counts.div(crosstab_counts.sum(axis=1), axis=0) * 100
+        crosstab_pct = crosstab_counts.copy()
+        crosstab_pct.loc["all"] = crosstab_pct.sum(axis=0)
+        crosstab_pct = crosstab_pct.div(crosstab_pct.sum(axis=1), axis=0) * 100
 
         crosstab_pct.plot(kind="bar", stacked=True, ax=ax, color=colors)
         ax.set_title(
@@ -729,6 +700,7 @@ def plot_c2c(
     top_n: int = 20,
     sources: Iterable[str] = None,
     targets: Iterable[str] = None,
+    includes_genes: Iterable[str] = None,
     figsize=(15, 8),
 ):
     """Lightweight cell-cell communication dotplot with controlled dot sizes."""
@@ -740,6 +712,8 @@ def plot_c2c(
         df = df[df["source"].isin(sources)]
     if targets:
         df = df[df["target"].isin(targets)]
+    if includes_genes:
+        df = df[df["ligand_complex"].isin(includes_genes) | df["receptor_complex"].isin(includes_genes)]
 
     df = df.nsmallest(top_n, "magnitude_rank")
 
@@ -799,7 +773,7 @@ def plot_c2c(
     axes[0].set(yticks=range(len(lr_list)), ylabel="Ligand -> Receptor")
     axes[0].set_yticklabels(lr_list)
     fig.suptitle("Source")
-    fig.text(0.5, 0.02, "Target", ha="center")
+    fig.text(0.5, -0.02, "Target", ha="center")
 
     fig.subplots_adjust(right=0.75)
 

@@ -24,7 +24,6 @@ tic("run CellChat (all)")
 cellchat <- prepCellChat(
   seurat_object,
   "celltype",
-  "sample",
   spatial=TRUE,
   spatial_key="spatial",
   spatial_factors=data.frame(ratio = 1, tol = 5))
@@ -39,7 +38,7 @@ for (g in groups) {
 
   subset_seurat <- subset(seurat_object, subset = timepoint == g)
   cellchat <- prepCellChat(
-    subset(seurat_object, subset = timepoint == g),
+    subset_seurat,
     "celltype",
     spatial=TRUE,
     spatial_key="spatial",

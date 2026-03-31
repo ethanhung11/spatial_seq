@@ -1,4 +1,4 @@
-# uv run python src/scripts/create_cloupe.py &> ./outs/cloupe.out
+# pixi run -e main python src/scripts/create_cloupe.py &> ./outs/cloupe.out
 
 from pathlib import Path
 import scanpy as sc
@@ -8,7 +8,7 @@ adata = sc.read_h5ad(Path("../../data") / "processed" / "single_cell" / "combine
 create_cloupe(
     adata,
     layer = "counts",
-    obs = ["Identifier", "Dataset", "Diet", "Age", "Sex", "Depot", "celltype"],
+    obs = ["Identifier", "Dataset", "Diet", "Age", "Sex", "Depot", "celltype", "celltype_hires"],
     obsm = [
         "UMAP_INT_none",
         "UMAP_INT_scvi_hvg-Identifier",

@@ -88,7 +88,68 @@ mergeCellChat.custom <- function(cellchat.list, pathway=FALSE) {
   return(cellchat.MERGED)
 }
 
-customCellChatDB <- function(lr_data, pathway_name = "Custom", 
+get_NeuronChatDB <- function() {
+  load(url("https://github.com/Wei-BioMath/NeuronChat/raw/main/data/interactionDB_mouse.rda"))
+  db <- interactionDB_mouse
+  
+  pad <- function(x) { length(x) <- 6; x }
+  cname <- function(x) paste(x, collapse = "_")
+  
+  complexes <- list()
+  
+  interaction <- do.call(rbind, lapply(db, function(x) {
+    
+    lig <- x$lig_contributor
+    rec <- x$receptor_subunit
+    
+    if (length(lig) > 1) {
+      lname <- cname(lig)
+      complexes[[lname]] <<- pad(lig)
+    } else lname <- lig
+    
+    if (length(rec) > 1) {
+      rname <- cname(rec)
+      complexes[[rname]] <<- pad(rec)
+    } else rname <- rec
+    
+    data.frame(
+      interaction_name = x$interaction_name,
+      pathway_name = x$ligand_type %||% "Custom",
+      ligand = lname,
+      receptor = rname,
+      agonist = "",
+      antagonist = "",
+      co_A_receptor = "",
+      co_I_receptor = "",
+      evidence = "NeuronChat",
+      annotation = ifelse(x$ligand_type %in% c("Neurotransmitter","Neuropeptide"),
+                          "Secreted Signaling","Other"),
+      stringsAsFactors = FALSE
+    )
+  }))
+  
+  complex <- if (length(complexes)) {
+    df <- as.data.frame(do.call(rbind, complexes), stringsAsFactors = FALSE)
+    colnames(df) <- paste0("subunit_", 1:6)
+    rownames(df) <- names(complexes)
+    unique(df)
+  } else data.frame()
+  
+  cofactor <- data.frame(
+    cofactor1 = NA, cofactor2 = NA, cofactor3 = NA,
+    cofactor4 = NA, cofactor5 = NA, cofactor6 = NA, cofactor7 = NA,
+    stringsAsFactors = FALSE
+  )
+  
+  list(
+    interaction = unique(interaction),
+    complex = complex,
+    cofactor = cofactor,
+    geneInfo = CellChatDB.mouse$geneInfo
+  )
+}
+
+singleLR_custom_CellChatDB <- function(lr_data, pathway_name = "Custom", 
                                       annotation = "Secreted Signaling",
                                       evidence = "Custom Database") {
   # Create interaction table

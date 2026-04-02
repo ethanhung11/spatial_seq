@@ -11,8 +11,8 @@ import scvi
 
 # analysis & device specific
 CORES = 20
-DATADIR = Path("../../../data")
-REFDIR = Path("../../../references")
+DATADIR = Path("../../../../data")
+REFDIR = Path("../../../../references")
 
 import scvi
 from lightning.pytorch import seed_everything

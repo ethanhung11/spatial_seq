@@ -8,10 +8,14 @@ knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
 # general
 options(max.print = 300)
 options(stringsAsFactors = FALSE)
-library(dplyr)
 library(here)
+Sys.setenv(RETICULATE_PYTHON = here("~/miniconda3/envs/bulk_rnaseq/bin/python"))
+
+library(cli)
+library(dplyr)
 library(ggplot2)
 library(cowplot)
+library(scales)
 library(circlize)
 
 # single-cell general
@@ -26,6 +30,7 @@ library(ComplexHeatmap)
 library(NMF)
 library(ggalluvial)
 source(here("src", "single_cell", "cellchat.R"))
+library(uwot)
 
 #' https://htmlpreview.github.io/?https://github.com/jinworks/CellChat/blob/master/tutorial/CellChat-vignette.html
 #' https://htmlpreview.github.io/?https://github.com/jinworks/CellChat/blob/master/tutorial/Comparison_analysis_of_multiple_datasets.html
@@ -34,28 +39,31 @@ source(here("src", "single_cell", "cellchat.R"))
 # Setup
 
 ```{r Prep Objects}
-savename <- "cellchat_DEFAULT"
-DATADIR <- here("data", "processed", "single_cell", "combined")
+savename <- "cellchat_NEURON_nonspatial"
+DATADIR <- here("data", "processed", "external")
 CELLCHAT_DIR <- here(DATADIR, "tools", "cellchat")
-PLOT_DIR <- here("plots", "adipose atlas", savename)
+PLOT_DIR <- here("plots", "pailin", savename)
 load.seurat <- FALSE
 has.pathway <- TRUE
 
 if (load.seurat == TRUE) {
-  seurat_object <- readRDS(here(DATADIR, "eWAT_Male-fb_macs.rds"))
+  seurat_object <- readRDS(here(DATADIR, "analyzed.rds"))
   seurat_object <- NormalizeData(seurat_object)
-  Idents(seurat_object) <- seurat_object$celltype_hires
-  conditions <- levels(seurat_object$Diet)
+  Idents(seurat_object) <- seurat_object$celltype
+  groups <- levels(seurat_object$timepoint)
   seurat_object$sample[1]
-  # p <- FeaturePlot(subset(seurat_object, sample == seurat_object$sample[1]), "celltype", reduction = "spatial")
-  # ratio <- 4/3 #um per px
-  # p +
-#   geom_circle(aes(x0 = x0, y0 = y0, r = r), data = data.frame(x0 = 7500, y0 = 2000, r = 250/ratio), inherit.aes = FALSE, color = "black", fill = NA, linewidth = 1) +
-#   coord_fixed() +
-#   geom_circle(aes(x0 = x0, y0 = y0, r = r), data = data.frame(x0 = 7500, y0 = 2000, r = 100/ratio), inherit.aes = FALSE, color = "black", fill = NA, linewidth = 1) +
-#   coord_fixed()
+  
+  seurat_s1 <- subset(seurat_object, sample == seurat_object$sample[1])
+  p <- DimPlot(seurat_s1, reduction = "spatial", group.by = "celltype", dims = c(1, 2))
+  
+  ratio <- 4/3 #um per px
+  p +
+    geom_circle(aes(x0 = x0, y0 = y0, r = r), data = data.frame(x0 = 7500, y0 = 2000, r = 250/ratio), inherit.aes = FALSE, color = "black", fill = NA, linewidth = 1) +
+    coord_fixed() +
+    geom_circle(aes(x0 = x0, y0 = y0, r = r), data = data.frame(x0 = 7500, y0 = 2000, r = 100/ratio), inherit.aes = FALSE, color = "black", fill = NA, linewidth = 1) +
+    coord_fixed()
 } else {
-  conditions <- c("LFD", "HFD")
+  groups <- c("pbs", "7dpi", "3wpi")
 }
 
 # read in cellchat objects
@@ -81,6 +89,35 @@ m <- "weight"
 available_slots <- if (has.pathway) c("net", "netP") else c("net")
 all.celltypes <- levels(cellchat.MERGED@idents$joint)
 
+```
+
+```{r object cleaning}
+for (g in groups) {
+  cellchat.list[[g]]@LR$LRsig$interaction_name_2 <- cellchat.list[[g]]@LR$LRsig$interaction_name
+  cellchat.MERGED@LR[[g]]$LRsig$interaction_name_2 <- cellchat.MERGED@LR[[g]]$LRsig$interaction_name
+}
+
+
+# TMP_SAVEDIR <- here("data", "processed", "external", "tools", "cellchat")
+# savename <- "cellchat_NEURON"
+# 
+# for (g in names(cellchat.list)) {
+#   int_names <- cellchat.list[[g]]@LR$LRsig$interaction_name
+#   rownames(cellchat.list[[g]]@LR$LRsig) <- int_names
+#   dimnames(cellchat.list[[g]]@net$prob)[[3]] <- int_names
+#   dimnames(cellchat.list[[g]]@net$pval)[[3]] <- int_names
+#   names(cellchat.list[['pbs']]@net$centr) <- int_names
+# }
+# 
+# grouped_celltypes <- levels(cellchat.list[[1]]@idents)
+# grouped_celltypes[grepl("neu", grouped_celltypes, ignore.case = TRUE)] <- "Neurons"
+# grouped_celltypes <- factor(grouped_celltypes)
+# cellchat.list <- lapply(cellchat.list, function(x) {mergeInteractions(x, grouped_celltypes)})
+# for (g in groups) {saveRDS(cellchat.list[[g]], file = here(TMP_SAVEDIR, paste0(savename, "_", g, ".rds")))}
+# 
+# # Merge
+# cellchat.MERGED <- mergeCellChat.custom(cellchat.list, pathway=has.pathway)
+# saveRDS(cellchat.MERGED, file = here(TMP_SAVEDIR, paste0(savename, "_MERGED.rds")))
 ```
 
 # Plotting
@@ -251,77 +288,77 @@ for (slot in available_slots) {
 }
 
 
-# { # combined in/out scatter
-#   df_list <- list()
-#   for (g in groups) {
-#     W <- cellchat.list[[g]]@net$weight
-#     outgoing <- rowSums(W)
-#     incoming <- colSums(W)
-# 
-#     df_list[[g]] <- data.frame(
-#       celltype = rownames(W),
-#       outgoing = outgoing,
-#       incoming = incoming,
-#       timepoint = g
-#     )
-#   }
-#   df <- bind_rows(df_list)
-# 
-#   # palette
-#   celltypes <- unique(df$celltype)
-#   cols <- scPalette(length(celltypes))
-#   
-#   # ensure correct ordering
-#   df <- df %>%
-#     mutate(timepoint = factor(timepoint, levels = c("pbs", "7dpi", "3wpi"))) %>%
-#     arrange(celltype, timepoint)
-#   
-#   # build segment data (one arrow per step)
-#   df_seg <- df %>%
-#     group_by(celltype) %>%
-#     mutate(
-#       xend = lead(outgoing),
-#       yend = lead(incoming)
-#     ) %>%
-#     filter(!is.na(xend))
-#   
-#   gg1 <- ggplot() +
-#     geom_segment(
-#       data = df_seg,
-#       aes(x = outgoing, y = incoming,
-#           xend = xend, yend = yend,
-#           color = celltype),
-#       arrow = arrow(length = unit(0.25, "cm"), type = "closed"),
-#       linewidth = 1.2,
-#       alpha = 0.9
-#     ) +
-#     geom_point(
-#       data = df,
-#       aes(x = outgoing, y = incoming,
-#           fill = celltype,
-#           shape = timepoint),
-#       color = "black",
-#       size = 3,
-#       stroke = 0.8,
-#     ) +
-#     scale_shape_manual(values = c(
-#       "pbs" = 21,   # circle
-#       "7dpi" = 24,  # triangle
-#       "3wpi" = 22   # square
-#     )) +
-#     theme_classic() +
-#     labs(x = "Outgoing signaling", y = "Incoming signaling") +
-#     scale_color_manual(values = cols) +
-#     scale_fill_manual(values = cols) +
-#     guides(color = guide_legend(
-#       override.aes = list(size = 0)
-#     ))
-#   
-#   ggsave(
-#     here(PLOT_DIR, "_Overview", paste0("Total_In_Out_Scatter_LRs COMBINED.jpg")),
-#     plot=gg1,
-#     width = 2000, height = 2000, dpi = 300, units="px")
-# }
+{ # combined in/out scatter
+  df_list <- list()
+  for (g in groups) {
+    W <- cellchat.list[[g]]@net$weight
+    outgoing <- rowSums(W)
+    incoming <- colSums(W)
+
+    df_list[[g]] <- data.frame(
+      celltype = rownames(W),
+      outgoing = outgoing,
+      incoming = incoming,
+      timepoint = g
+    )
+  }
+  df <- bind_rows(df_list)
+
+  # palette
+  celltypes <- unique(df$celltype)
+  cols <- scPalette(length(celltypes))
+  
+  # ensure correct ordering
+  df <- df %>%
+    mutate(timepoint = factor(timepoint, levels = c("pbs", "7dpi", "3wpi"))) %>%
+    arrange(celltype, timepoint)
+  
+  # build segment data (one arrow per step)
+  df_seg <- df %>%
+    group_by(celltype) %>%
+    mutate(
+      xend = lead(outgoing),
+      yend = lead(incoming)
+    ) %>%
+    filter(!is.na(xend))
+  
+  gg1 <- ggplot() +
+    geom_segment(
+      data = df_seg,
+      aes(x = outgoing, y = incoming,
+          xend = xend, yend = yend,
+          color = celltype),
+      arrow = arrow(length = unit(0.25, "cm"), type = "closed"),
+      linewidth = 1.2,
+      alpha = 0.9
+    ) +
+    geom_point(
+      data = df,
+      aes(x = outgoing, y = incoming,
+          fill = celltype,
+          shape = timepoint),
+      color = "black",
+      size = 3,
+      stroke = 0.8,
+    ) +
+    scale_shape_manual(values = c(
+      "pbs" = 21,   # circle
+      "7dpi" = 24,  # triangle
+      "3wpi" = 22   # square
+    )) +
+    theme_classic() +
+    labs(x = "Outgoing signaling", y = "Incoming signaling") +
+    scale_color_manual(values = cols) +
+    scale_fill_manual(values = cols) +
+    guides(color = guide_legend(
+      override.aes = list(size = 0)
+    ))
+  
+  ggsave(
+    here(PLOT_DIR, "_Overview", paste0("Total_In_Out_Scatter_LRs COMBINED.jpg")),
+    plot=gg1,
+    width = 2000, height = 2000, dpi = 300, units="px")
+}
 ```
 
 ```{r Cell Type Specific}
@@ -459,4 +496,233 @@ for (celltype in all.celltypes) {
   }
   cli_progress_update()
 }
+```
+
+```{r Extras}
+for (celltype in relevant.celltypes) {
+  dir.create(here(PLOT_DIR, celltype), showWarnings = F, recursive = T)
+  
+  # Merged groups
+  groupSize <- cellchat.MERGED@idents[["joint"]] %>% table() %>% as.numeric()
+  
+  for (n in 1:length(comparisons)) {
+    title <- paste(comparisons[[n]], collapse = " vs ")
+  
+    # BARPLOT Δ
+    for (slot in available_slots) {
+      gg1 <- rankNet(
+        cellchat.MERGED,
+        mode = "comparison", comparison=comparisons_int[[n]],
+        slot.name = slot,
+        sources.use = celltype,
+        targets.use = "Fibroblasts",
+        measure = m,
+        stacked = T,
+        do.stat = TRUE,
+        title = paste(celltype, "outgoing signaling"))
+      
+      gg2 <- rankNet(
+        cellchat.MERGED,
+        mode = "comparison", comparison=comparisons_int[[n]],
+        slot.name = slot,
+        targets.use = celltype,
+        targets.use = "Fibroblasts",
+        measure = m,
+        stacked = T,
+        do.stat = TRUE,
+        title = paste(celltype, "incoming signaling"))
+      
+      height <- if (slot == "net") 24000 else 6000
+      version <- if (slot == "net") "LR" else "Pathway"
+      ggsave(
+        here(PLOT_DIR, "extras", paste0("FB-Phox2b RankNet", version, "-", title, ".jpg")),
+        plot=gg1 + gg2,
+        width = 2000, height = height, dpi = 300, units="px", limitsize = FALSE)
+    }
+  }
+}
+
+cellchat.MERGED <- mergeCellChat(cellchat.list, add.names = names(cellchat.list))
+
+gg1 <- netVisual_bubble(
+  cellchat.MERGED,
+  sources.use = celltype,
+  targets.use = "Fibroblasts",
+  comparison = c(1, 2),
+  # max.dataset = 2,
+  # title.name = "Increased signaling in LS",
+  angle.x = 45,
+  remove.isolate = T)
+
+gg2 <- netVisual_bubble(
+  cellchat.list[["pbs"]],
+  sources.use = c(celltype),
+  targets.use = c("Fibroblasts"),
+  # comparison = c(1, 2),
+  # angle.x = 45
+)
+
+
+
+dir.create(here(PLOT_DIR, "Neurons Grouped"), showWarnings = F, recursive = T)
+folder.name <- "Neurons Grouped"
+celltype <- "Neurons"
+m <- "weight.merged"
+
+cell.idents <- as.character(cellchat.list[[1]]@idents)
+groupSize <- replace(cell.idents,grepl("neu", cell.idents, ignore.case = TRUE), "Neurons") %>%
+  table() %>% as.numeric()
+print(groupSize)
+
+{ # CIRCOPLOT
+  jpeg(
+    here(PLOT_DIR, folder.name, paste0("Total_Circo.jpg")),
+    width = 6000, height = 2000, res = 300, type = "cairo")
+  par(mfrow = c(1,max), mar = c(1,1,1,1))
+  for (n in 1:max) {
+    netVisual_circle(
+      cellchat.list[[groups[n]]]@net[[m]],
+      vertex.weight = groupSize,
+      weight.scale = T,
+      label.edge= F,
+      margin = 0.4,
+      title.name = paste("Interaction", m, "by celltype,", groups[n]))
+    if (n < max) par(fig = c(n/max, (n+1)/max, 0, 1), new = TRUE)
+  }
+  dev.off()
+}
+
+for (n in 1:length(comparisons)) {
+  title <- paste(comparisons[[n]], collapse = " vs ")
+  # CIRCOPLOT Δ
+  jpeg(
+    here(PLOT_DIR, folder.name, paste0("Differential_Circo-", title, ".jpg")),
+    width = 3000, height = 3000, res = 300, type = "cairo")
+  netVisual_diffInteraction(
+    cellchat.MERGED,
+    weight.scale = T,
+    vertex.weight = groupSize,
+    comparison = comparisons[[n]],
+    measure = m,
+    title.name=paste(title, "circo"),
+    margin = 0.4)
+  dev.off()
+}
+
+{ # CIRCOPLOT
+  jpeg(
+    here(PLOT_DIR, folder.name, paste0("Total_Circo-Neuron Grouped ONLY.jpg")),
+    width = 9000, height = 3000, res = 300, type = "cairo")
+  par(mfrow = c(1,max), mar = c(1,1,1,1))
+  for (n in 1:max) {
+    cell.idents <- as.character(cellchat.list[[groups[n]]]@idents)
+    groupSize <- replace(cell.idents,grepl("neu", cell.idents, ignore.case = TRUE), "Neurons") %>%
+      table() %>% as.numeric()
+    print(groupSize)
+    netVisual_circle(
+      cellchat.list[[groups[n]]]@net[[m]],
+      vertex.weight = groupSize,
+      idents.use = celltype,
+      weight.scale = T,
+      label.edge= F,
+      margin = 0.4,
+      title.name = paste("Interaction", m, "by celltype,", groups[n]))
+    if (n < max) par(fig = c(n/max, (n+1)/max, 0, 1), new = TRUE)
+  }
+  dev.off()
+}
+
+```
+
+# Archive
+
+```{r cellchat plots UNUSED}
+# Celltype scatterplots differential in/outgoing LR pairs
+# celltypes.of.interest <- c("OPC", "Astrocytes", "Airway neurons", "Oligodendrocytes", "Excitatory neurons", "Inhibitory neurons", "Neu Phox2b+", "Neu ")
+celltypes.of.interest <- c("Neu Phox2b+")
+
+# only use if comparing net (not needed for netP)
+slot <- "netP"
+if (slot == "net"){
+  all_LR <- unique(unlist(lapply(cellchat.MERGED@LR, function(x) x$LRsig$interaction_name)))
+} else {
+  all_LR <- NULL
+}
+
+for (celltype in celltypes.of.interest) {
+  for (g in c(2,3)) {
+    netAnalysis_signalingChanges_scatter(
+      cellchat.MERGED,
+      idents.use = celltype,
+      comparison = c(g, 1),
+      slot.name = slot,
+      signaling = all_LR,
+      top.label = 0.1
+    )
+  }
+}
+
+# joint embedding of loadings
+for (slot in c("net", "netP")){
+  netVisual_embeddingPairwise(
+    cellchat.MERGED,
+    type = "functional",
+    slot.name = slot,
+    label.size = 3.5)
+  
+  rankSimilarity(
+    cellchat.MERGED,
+    comparison2=c(1,2,3),
+    type = "functional",
+    slot.name = slot)
+}
+
+
+```
+
+```{r NeuronChat}
+neuronchat <- readRDS(here(CELLCHAT_DIR,"neuronchat_ALL.rds"))
+
+groupSize <- neuronchat@idents %>% table() %>% as.numeric()
+net <- NeuronChat::net_aggregation(neuronchat@net, method = "weight")
+netVisual_circle_neuron(
+  net,
+  vertex.weight=groupSize,
+  vertex.size.max=20,
+  arrow.size = 0.5,margin=0.3,edge.width.max=8)
+
+cell_prox <- NeuronChat::cell_proximity_enrichment_score_multiple(
+    meta = neuronchat@meta,
+    celltype_label = "celltype",
+    centroid_x = "spatial1",
+    centroid_y = "spatial2",
+    slice_id    = "sample",
+    thresh_dist = 400 # microns
+)
+
+# 9. Visualization outputs
+
+netVisual_spatial(seurat_obj, spatial_links) # layered spatial plot
+```
+
+# Custom Database
+
+<https://htmlpreview.github.io/?https://github.com/jinworks/CellChat/blob/master/tutorial/Update-CellChatDB.html>
+
+```{r}
+load(url("https://github.com/Wei-BioMath/NeuronChat/raw/main/data/interactionDB_human.rda"))
+neuron_df <- as.data.frame(do.call(rbind, lapply(interactionDB_human, function(x) {
+    data.frame(
+        interaction_name = x$interaction_name,
+        ligand = x$lig_contributor,
+        receptor = x$receptor_subunit,
+        lig_contributor = x$lig_contributor,
+        receptor_subunit = x$receptor_subunit,
+        interaction_type = x$interaction_type,
+        ligant_type = x$ligand_type,
+        stringsAsFactors = FALSE
+    )
+})))
+neuronChatDB <- create_custom_cellchat_db(neuron_df, evidence = "NeuronChat")
+ethanDB <- create_custom_cellchat_db(read.csv(here("references", "ethan_ccc_database.csv")))
 ```

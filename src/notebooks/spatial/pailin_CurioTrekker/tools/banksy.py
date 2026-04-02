@@ -17,7 +17,7 @@ from banksy.initialize_banksy import initialize_banksy
 from banksy.embed_banksy import generate_banksy_matrix
 from banksy.plot_banksy import plot_results
 
-DATADIR = Path("../../../data")
+DATADIR = Path("../../../../data")
 seed = 1234
 np.random.seed(seed)
 random.seed(seed)

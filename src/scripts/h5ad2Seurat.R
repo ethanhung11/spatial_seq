@@ -7,8 +7,8 @@ library(reticulate)
 library(sceasy)
 library(Seurat)
 
-DATADIR <- here("data", "processed", "single_cell", "combined")
-obj_name <- "eWAT_Male-fb_macs"
+DATADIR <- here("data", "processed", "spatial", "Xenium", "kennedi_flu")
+obj_name <- "integrated"
 
 tic("converting to Seurat object")
 seurat_object <- sceasy::convertFormat(

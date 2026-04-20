@@ -77,7 +77,6 @@ cellchat.MERGED <- readRDS(here(CELLCHAT_DIR, paste0(savename, "_MERGED", ".rds"
 
 library(ggthemes)
 max <- length(groups)
-groups <- c("pbs", "7dpi", "3wpi")
 group_colors <- colorblind_pal()(max)
 
 comparisons_int <- list(c(1,2), c(1,3), c(2,3))

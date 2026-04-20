@@ -14,6 +14,6 @@ tic("converting to h5ad object")
 seurat_object <- sceasy::convertFormat(
   here(DATADIR, paste0(obj_name,".rds")), 
   from = "seurat", 
-  to = "seurat",
+  to = "anndata",
   outFile=here(DATADIR, paste0(obj_name,".h5ad")))
 toc()

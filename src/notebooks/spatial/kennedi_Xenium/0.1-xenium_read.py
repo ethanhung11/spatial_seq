@@ -1,4 +1,4 @@
-# pixi run -e main python -u src/notebooks/spatial/kennedi_Xenium/read_xenium.py &> outs/spatial/read_xenium.out
+# pixi run -e main python -u xenium_downsample.py &> ../../../../outs/spatial/xenium_downsample.out
 
 from pathlib import Path
 from tqdm import tqdm

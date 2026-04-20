@@ -8,10 +8,12 @@ knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
 # general
 options(max.print = 300)
 options(stringsAsFactors = FALSE)
+
+library(cli)
 library(dplyr)
-library(here)
 library(ggplot2)
 library(cowplot)
+library(scales)
 library(circlize)
 
 # single-cell general
@@ -26,6 +28,7 @@ library(ComplexHeatmap)
 library(NMF)
 library(ggalluvial)
 source(here("src", "single_cell", "cellchat.R"))
+library(uwot)
 
 #' https://htmlpreview.github.io/?https://github.com/jinworks/CellChat/blob/master/tutorial/CellChat-vignette.html
 #' https://htmlpreview.github.io/?https://github.com/jinworks/CellChat/blob/master/tutorial/Comparison_analysis_of_multiple_datasets.html
@@ -60,19 +63,21 @@ if (load.seurat == TRUE) {
 
 # read in cellchat objects
 cellchat.list <- lapply(
-  here(CELLCHAT_DIR,paste0(savename, "_", groups, ".rds")),
+  here(CELLCHAT_DIR,paste0(savename, "_", conditions, ".rds")),
   function(x) readRDS(x)
 )
-names(cellchat.list) <- groups
+names(cellchat.list) <- conditions
 
 cellchat.MERGED <- readRDS(here(CELLCHAT_DIR, paste0(savename, "_MERGED", ".rds")))
 
 library(ggthemes)
-max <- length(groups)
-groups <- c("pbs", "7dpi", "3wpi")
-group_colors <- colorblind_pal()(max)
+library(pals)
+my_cols <- glasbey(max)
+max <- length(conditions)
+groups <- conditions
+group_colors <- glasbey(max)
 
-comparisons_int <- list(c(1,2), c(1,3), c(2,3))
+comparisons_int <- list(c(1,2))
 comparisons <- lapply(comparisons_int, function(idx) groups[idx])
 comparisons_title <- lapply(comparisons, paste, collapse = " vs ")
 comparisons_colors <- lapply(comparisons_int, function(idx) group_colors[idx])
@@ -105,7 +110,7 @@ groupSize <- cellchat.MERGED@idents[["joint"]] %>% table() %>% as.numeric()
     netVisual_diffInteraction(
       cellchat.MERGED,
       weight.scale = T,
-      color.edge = comparisons_colors[[n]],
+      color.edge = rev(comparisons_colors[[n]]),
       vertex.weight = groupSize,
       comparison = comparisons[[n]],
       measure = m,
@@ -120,7 +125,7 @@ groupSize <- cellchat.MERGED@idents[["joint"]] %>% table() %>% as.numeric()
 { # HEATMAP Δ
   jpeg(
     here(PLOT_DIR, "_Overview", "Differential_Heatmap.jpg"),
-    width = 6000, height = 2000, res = 300, type = "cairo")
+    width = 2000, height = 2000, res = 300, type = "cairo")
   par(mfrow = c(1,max), mar = c(1,1,1,1))
   plot_list <- list()
   for (n in 1:length(comparisons)) {
@@ -152,7 +157,7 @@ for (slot in available_slots) {
       ggsave(
         here(PLOT_DIR, "_Overview", paste0("Differential_Scatter_Pathway-", comparisons_title[[n]], ".jpg")),
         plot=f,
-        width = 3000, height = 3000, dpi = 300, units="px")
+        width = 2000, height = 2000, dpi = 300, units="px")
     }
   }
   # BARPLOT Δ
@@ -355,7 +360,7 @@ for (celltype in all.celltypes) {
         vertex.weight = groupSize,
         sources.use = celltype,
         comparison = comparisons[[n]],
-        color.edge = comparisons_colors[[n]],
+        color.edge = rev(comparisons_colors[[n]]),
         measure = m,
         # title.name = paste(comparisons_title[[n]], "outgoing")
       )
@@ -368,7 +373,7 @@ for (celltype in all.celltypes) {
         vertex.weight = groupSize,
         targets.use = celltype,
         comparison = comparisons[[n]],
-        color.edge = comparisons_colors[[n]],
+        color.edge = rev(comparisons_colors[[n]]),
         measure = m,
         # title.name = paste(comparisons_title[[n]], "incoming")
       )
@@ -378,7 +383,7 @@ for (celltype in all.celltypes) {
     dev.off()
   }
   
-  if (all(cellchat.MERGED@net$pbs$weight[,celltype] == 0)) next
+  if (all(cellchat.MERGED@net[[1]]$weight[,celltype] == 0)) next
 
   # BARPLOT Δ
   for (slot in available_slots) {
@@ -410,7 +415,7 @@ for (celltype in all.celltypes) {
         title = paste(celltype, "incoming signaling"))
     }
   
-    f3 <- wrap_plots(f1, nrow = 1) /
+    f3 <- wrap_plots(f1, nrow = 1) +
       wrap_plots(f2, nrow = 1)
     height <- if (slot == "net") 6000 else 3000
     version <- if (slot == "net") "LR" else "Pathway"
@@ -458,5 +463,29 @@ for (celltype in all.celltypes) {
       width = 3000, height = 3000, dpi = 300, units="px", limitsize = FALSE)
   }
   cli_progress_update()
+}
+```
+
+# Specific Questions
+
+```{r POSTN signaling?, fig.width=15, fig.height=15}
+for (pathways.show in c("PERIOSTIN", "TGFb", "GAS", "CXCL")){
+  weight.max <- getMaxWeight(cellchat.list, slot.name = c("netP"), attribute = pathways.show) # control the edge weights across different datasets
+  par(mfrow = c(1,2), xpd=TRUE)
+  for (i in 1:length(cellchat.list)) {
+    netVisual_aggregate(cellchat.list[[i]], signaling = pathways.show, layout = "circle", edge.weight.max = weight.max[1], edge.width.max = 10, signaling.name = paste(pathways.show, names(cellchat.list)[i]))
+  }
+  
+  par(mfrow = c(1, 2), xpd=TRUE)
+  for (i in 1:length(cellchat.list)) {
+    netVisual_chord_gene(cellchat.list[[i]], signaling=pathways.show, lab.cex = 0.5, names(cellchat.list)[i])
+  }
+  
+  # par(mfrow = c(1,2), xpd=TRUE)
+  # ht <- list()
+  # for (i in 1:length(cellchat.list)) {
+  #   ht[[i]] <- netVisual_heatmap(cellchat.list[[i]], signaling = pathways.show, color.heatmap = "Reds",title.name = paste(pathways.show, "signaling ",names(cellchat.list)[i]))
+  # }
+  # ComplexHeatmap::draw(ht[[1]] + ht[[2]], ht_gap = unit(0.5, "cm"))
 }
 ```

@@ -1,6 +1,6 @@
 import anndata as ad
 from pathlib import Path
-import commot as ct
+import notebooks.spatial.pailin_CurioTrekker.tools.run_commot as ct
 from single_cell.analysis import *
 
 from time import ctime, time

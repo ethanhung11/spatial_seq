@@ -16,6 +16,7 @@ from doubletdetection import BoostClassifier
 from pacmap import LocalMAP, PaCMAP
 from sklearn.metrics import silhouette_samples, silhouette_score
 
+from stopwatch import stopwatch
 import rpy2.robjects as ro
 from .R import get_converter, R_preload
 
@@ -140,7 +141,9 @@ def Filter_Doublet(
     ] = "doubletdetection",
     remove: bool = True,
     multipletRate: float = 0.075,
+    verbose = True,
 ):
+    start = stopwatch("Finding Doublets", mode=0)
     if "methods" not in adata.uns:
         adata.uns["methods"] = {}
 
@@ -283,6 +286,7 @@ def Filter_Doublet(
         adata.obs[f"doublet_score-{method}"] = adata.obs["doublet_score"]
         del adata.obs["predicted_doublet"], adata.obs["doublet_score"]
 
+    stopwatch("Finding Doublets", start, mode=1)
     return adata
 
 
@@ -393,7 +397,7 @@ def PCA(
     comp: int = 50,
 ) -> sc.AnnData:
     print(
-        f"Staring PCA with gene mask {gene_mask} at {comp} comps, saved at .obsm[{key}]"
+        f"Starting PCA with gene mask {gene_mask} at {comp} comps, saved at .obsm[{key}]"
     )
 
     sc.pp.pca(
@@ -414,7 +418,10 @@ def Integrate(
     verbose=True,
     **kwargs,
 ) -> sc.AnnData:
+    
+    start = stopwatch("Integration", mode=0)
     print(f"Integrating by Column {batch_column}: {adata.obs[batch_column].unique()}")
+
     if gene_mask is not None:
         assert gene_mask in adata.var.columns
     if "methods" not in adata.uns:
@@ -499,6 +506,7 @@ def Integrate(
 
     adata.uns["methods"]["integration"] = kind
 
+    stopwatch("Integration", start, mode=1)
     return adata
 
 
@@ -525,6 +533,8 @@ def Visualize(
         neighbor_key = "neighbors" + key
 
     if umap is True:
+        start = stopwatch("neighbors & UMAP", mode=0)
+
         print("Starting UMAP...")
         if neighbor_method == "umap_ann":
             sc.pp.neighbors(
@@ -545,22 +555,23 @@ def Visualize(
         )
         if show is True:
             sc.pl.embedding(adata, basis=f"UMAP{key}")
+        stopwatch("neighbors & UMAP", start, mode=1)
 
     if localmap is True:
-        print("Starting LocalMAP...")
-        lm = LocalMAP(**kwargs)
+        start = stopwatch("LocalMAP", mode=0)
+        lm = LocalMAP(random_state=random_state, apply_pca=False, **kwargs)
         if obsm is None:
-            adata.obsm[f"LocalMAP{key}"] = lm.fit_transform(adata.X, init="pca")
+            adata.obsm[f"LocalMAP{key}"] = lm.fit_transform(adata.X, init="random")
         elif obsm:
             adata.obsm[f"LocalMAP{key}"] = lm.fit_transform(
-                adata.obsm[obsm], init="pca"
+                adata.obsm[obsm], init="random"
             )
         if show is True:
             sc.pl.embedding(adata, basis=f"LocalMAP{key}")
-
+        stopwatch("LocalMAP", start, mode=1)
 
     if pacmap is True:
-        print("Starting PaCMAP...")
+        start = stopwatch("PaCMAP", mode=0)
         pm = PaCMAP(**kwargs)
         if obsm is None:
             adata.obsm[f"PaCMAP{key}"] = pm.fit_transform(adata.X, init="pca")
@@ -570,6 +581,7 @@ def Visualize(
             )
         if show is True:
             sc.pl.embedding(adata, basis=f"PaCMAP{key}")
+        stopwatch("PaCMAP", start, mode=1)
 
     return adata
 
@@ -583,7 +595,8 @@ def Cluster(
     run_connectivity: bool = True,
     int_key: str = None,
 ):
-    adata.uns[f"{cluster_key} Info"] = {}
+    start = stopwatch("Clustering", mode=0)
+    adata.uns[f"{cluster_key}_Info"] = {}
     for res in tqdm(resolutions, desc="Clustering"):
         try:
             sc.tl.leiden(
@@ -592,9 +605,11 @@ def Cluster(
                 neighbors_key=neighbor_key,
                 key_added=f"{cluster_key}_{res}",
                 random_state=random_state,
+                flavor='igraph',
+                n_iterations=-1
             )
             adata.obs[f"{cluster_key}_{res}"] = adata.obs[f"{cluster_key}_{res}"].astype(int).astype("category")
-            adata.uns[f"{cluster_key} Info"][f"{cluster_key}_{res}"] = adata.uns[f"{cluster_key}_{res}"]
+            adata.uns[f"{cluster_key}_Info"][f"{cluster_key}_{res}"] = adata.uns[f"{cluster_key}_{res}"]
             del adata.uns[f"{cluster_key}_{res}"]
             
         except Exception as e:
@@ -603,6 +618,7 @@ def Cluster(
     if run_connectivity is True:
         GraphConnectivity(adata, int_key, cluster_key, resolutions)
 
+    stopwatch("Clustering", start, mode=1)
     return adata
 
 
@@ -630,7 +646,7 @@ def GraphConnectivity(
         plt.grid(True)
 
     gc_scores.index = gc_scores.index.astype("str")
-    adata.uns[f"{cluster_key} Info"]["Graph Connectivity"] = gc_scores.to_dict()
+    adata.uns[f"{cluster_key}_Info"]["Graph Connectivity"] = gc_scores.to_dict()
 
     return adata
 

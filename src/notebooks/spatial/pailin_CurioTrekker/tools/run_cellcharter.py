@@ -6,7 +6,7 @@ import numpy as np
 # single cell
 import scanpy as sc
 import squidpy as sq
-import cellcharter as cc
+import notebooks.spatial.pailin_CurioTrekker.tools.run_cellcharter as cc
 import scvi
 
 # analysis & device specific

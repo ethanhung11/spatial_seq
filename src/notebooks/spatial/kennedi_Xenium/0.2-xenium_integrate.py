@@ -11,15 +11,23 @@ DATADIR = HOMEDIR / "data" / "processed" / "spatial" / "Xenium" / "kennedi_flu"
 if not str(SRCDIR) in sys.path:
     sys.path.insert(0, str(SRCDIR))
 
+import warnings
+warnings.simplefilter("ignore", FutureWarning)
+
 from single_cell.preprocess import *
+import scanpy as sc
 import spatialdata as sd
+from utils import stopwatch
 session_info.show()
+
+sc.settings.n_jobs = 20
 
 CLUSTER_KEY = "global_leiden"
 DE_KEY = "global_DEG"
 resolutions = np.arange(1, 16) / 10
 
 if __name__ == "__main__":
+    START = stopwatch(mode=-1)
     # read all xenium outs
     sdatas = {
         fname.split("__")[1]:
@@ -28,7 +36,7 @@ if __name__ == "__main__":
     }
 
     # read in annotations
-    REFDIR = Path("../../../../../../../kpyper") / "Xenium_Flu"
+    REFDIR = Path("../../../../../../../kpyper") / "Xenium_Flu" / "data"
     data_folders = [folder for folder in REFDIR.rglob("*Molofski_Pyper*") if folder.is_dir()]
     annotations = {}
     for folder in data_folders:
@@ -63,6 +71,7 @@ if __name__ == "__main__":
 
     # combine samples
     sdata = sd.concatenate(sdatas, concatenate_tables=True)
+    stopwatch("OUTER SCRIPT - Combine & Filter", START, mode=1)
 
     # standard RNAseq preprocessing
     adata = sdata.tables["table"]
@@ -70,10 +79,15 @@ if __name__ == "__main__":
     adata = Filter_QC(adata, 10, 0, 0)
     Normalize(adata)
     PCA(adata, gene_mask=None, key="PCA", comp=20)
+    stopwatch("OUTER SCRIPT - Preprocessing", START, mode=1)
 
     Integrate(adata, "Slide", gene_mask=None, pca_key="PCA")
-    Visualize(adata)
+    stopwatch("OUTER SCRIPT - Integration", START, mode=1)
+    Visualize(adata, localmap=False)
+    stopwatch("OUTER SCRIPT - Visualization", START, mode=1)
     Cluster(adata, neighbor_key="neighbors", cluster_key=CLUSTER_KEY, resolutions=resolutions)
+    stopwatch("OUTER SCRIPT - Clustering", START, mode=1)
 
     sdata.write(DATADIR / "integrated.zarr")
+    stopwatch("OUTER SCRIPT - COMPLETE", START, mode=1)
 

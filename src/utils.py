@@ -4,33 +4,13 @@ import random
 import pandas as pd
 from pathlib import Path
 from typing import Iterable, Literal
-from time import time, ctime
-from datetime import timedelta
 
 # single cell
-from gseapy import Msigdb
 import scanpy as sc
 from geosketch import gs
+from scsampler import scsampler
 import rpy2.robjects as ro
 from single_cell.R import R_preload, get_converter
-
-
-def stopwatch(taskname: str = "", start=time(), mode: Literal[-1, 0, 1] = 0):
-    if mode == 0:
-        print(
-            (
-                f"begin {taskname} at {ctime(time())}, "
-                f"(total: {timedelta(seconds=time()-start)})"
-            )
-        )
-    elif mode == 1:
-        print(f"finished {taskname} in {timedelta(seconds=time()-start)}\n")
-    elif mode == -1:
-        pass
-    else:
-        raise ValueError("valid modes only include -1, 0, or 1")
-    return time()
-
 
 
 def rename_uns(adata, pat, prefix=None, suffix=None,
@@ -211,13 +191,6 @@ def generate_barcodes(
     return random.sample(valid_barcodes, k=N)
 
 
-# def get_msigdb(
-        
-# )
-#     msig = Msigdb()
-#     return
-
-
 def validate_barcodes(
     barcodes,
     cellranger_installation=Path.home() / "apps" / "cellranger-9.0.1",
@@ -291,9 +264,15 @@ def create_cloupe(
 
     return True
 
-def sketch_downsample(adata: sc.AnnData, key: str, N: int = 10000):
-    sketch_index = gs(adata.obsm[key], N, replace=False)
-    return adata[sketch_index]
+
+def Downsample(adata: sc.AnnData, key: str, N: int = 10000, method: Literal["geosketch", "scsampler"]="geosketch", **kwargs):
+    if method == "geosketch":
+        sketch_index = gs(adata.obsm[key], N, replac = False, **kwargs)
+        return adata[sketch_index]
+    elif method == "scsampler":
+        return scsampler(adata, n_obs = N, copy = True, obsm = key, **kwargs)
+    else:
+        raise ValueError(f"`{method}` is not a valid method type! Must be among `geosketch`, `scsampler`")
 
 
 def concat_spatial(x, y, ref_x, ref_y, offset_x=0, offset_y=0, mode="perc"):

@@ -45,7 +45,7 @@ prepCellChat <- function(
   return(cellchat)
 }
 
-runCellChat <- function(cellchat, spatial=FALSE, pathway=FALSE) {
+runCellChat <- function(cellchat, spatial=FALSE, pathway=FALSE, ...) {
   options(future.globals.maxSize = 1000e6)
   future::plan("multisession", workers = 1)
   print("filtering overexpressed genes -> LR pairs")
@@ -57,9 +57,9 @@ runCellChat <- function(cellchat, spatial=FALSE, pathway=FALSE) {
   if (spatial == TRUE) {
     cellchat <- computeCommunProb(cellchat, type = "truncatedMean", trim = 0.1, 
                                   distance.use = FALSE, interaction.range = 250, scale.distance = NULL,
-                                  contact.dependent = TRUE, contact.range = 100)
+                                  contact.dependent = TRUE, contact.range = 100, ...)
   } else {
-    cellchat <- computeCommunProb(cellchat, type = "triMean")
+    cellchat <- computeCommunProb(cellchat, type = "triMean", ...)
   }
   cellchat <- filterCommunication(cellchat, min.cells = 10)
   

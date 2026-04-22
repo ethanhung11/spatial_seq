@@ -1,8 +1,8 @@
 # Rscript src/scripts/h5ad2Seurat.R &> ./outs/seurat_h5ad_conversion.out
 
 library(here)
-Sys.setenv(RETICULATE_PYTHON = here(".pixi/envs/main/bin/python"))
 library(tictoc)
+Sys.setenv(RETICULATE_PYTHON = here(".pixi/envs/main/bin/python"))
 library(reticulate)
 library(sceasy)
 library(Seurat)

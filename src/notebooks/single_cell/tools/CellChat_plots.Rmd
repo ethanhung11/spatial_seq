@@ -9,6 +9,7 @@ knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
 options(max.print = 300)
 options(stringsAsFactors = FALSE)
 
+library(here)
 library(cli)
 library(dplyr)
 library(ggplot2)
@@ -72,8 +73,8 @@ cellchat.MERGED <- readRDS(here(CELLCHAT_DIR, paste0(savename, "_MERGED", ".rds"
 
 library(ggthemes)
 library(pals)
-my_cols <- glasbey(max)
 max <- length(conditions)
+my_cols <- glasbey(max)
 groups <- conditions
 group_colors <- glasbey(max)
 
@@ -468,13 +469,21 @@ for (celltype in all.celltypes) {
 
 # Specific Questions
 
-```{r POSTN signaling?, fig.width=15, fig.height=15}
-for (pathways.show in c("PERIOSTIN", "TGFb", "GAS", "CXCL")){
+```{r specific signaling?, fig.width=15, fig.height=15}
+dir.create(here(PLOT_DIR, "_Signaling"), showWarnings = F, recursive = T)
+
+# c("PERIOSTIN", "TGFb", "SEMA3", "GAS", "CXCL", "CCL", "COMPLEMENT", "IGF")
+for (pathways.show in c("COMPLEMENT")){
   weight.max <- getMaxWeight(cellchat.list, slot.name = c("netP"), attribute = pathways.show) # control the edge weights across different datasets
+  jpeg(
+    here(PLOT_DIR, "_Signaling", paste0("Circo_",pathways.show,".jpg")),
+    width = 6000, height = 4000, res = 300, type = "cairo"
+  )
   par(mfrow = c(1,2), xpd=TRUE)
   for (i in 1:length(cellchat.list)) {
     netVisual_aggregate(cellchat.list[[i]], signaling = pathways.show, layout = "circle", edge.weight.max = weight.max[1], edge.width.max = 10, signaling.name = paste(pathways.show, names(cellchat.list)[i]))
   }
+  dev.off()
   
   par(mfrow = c(1, 2), xpd=TRUE)
   for (i in 1:length(cellchat.list)) {
@@ -488,4 +497,45 @@ for (pathways.show in c("PERIOSTIN", "TGFb", "GAS", "CXCL")){
   # }
   # ComplexHeatmap::draw(ht[[1]] + ht[[2]], ht_gap = unit(0.5, "cm"))
 }
+
+
+{ # CIRCOPLOT Δ
+  jpeg(
+    here(PLOT_DIR, celltype, "Differential_Circos.jpg"),
+    width = 4000, height = 2000, res = 300, type = "cairo"
+  )
+
+  layout(matrix(1:(2*length(comparisons)), nrow = 2, byrow = FALSE))
+
+  for (n in 1:length(comparisons)) {
+    # outgoing
+    netVisual_diffInteraction(
+      cellchat.MERGED,
+      weight.scale = TRUE,
+      vertex.weight = groupSize,
+      sources.use = celltype,
+      comparison = comparisons[[n]],
+      color.edge = rev(comparisons_colors[[n]]),
+      measure = m,
+      # title.name = paste(comparisons_title[[n]], "outgoing")
+    )
+    title(main = paste(comparisons_title[[n]], "outgoing"), cex.main = 2)
+    circos.clear()
+    # incoming
+    netVisual_diffInteraction(
+      cellchat.MERGED,
+      weight.scale = TRUE,
+      vertex.weight = groupSize,
+      targets.use = celltype,
+      comparison = comparisons[[n]],
+      color.edge = rev(comparisons_colors[[n]]),
+      measure = m,
+      # title.name = paste(comparisons_title[[n]], "incoming")
+    )
+    title(main = paste(comparisons_title[[n]], "incoming"), cex.main = 2)
+    circos.clear()
+  }
+  dev.off()
+}
+
 ```

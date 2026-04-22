@@ -410,7 +410,7 @@ def Integrate(
     adata: sc.AnnData,
     batch_column: str,
     gene_mask: str = "highly_variable",
-    pca_key: str = "PCA_hvg",
+    pca_key: str = "PCA-hvg",
     kind: Literal["harmony", "scvi", "scanorama", "seurat"] = "harmony",
     integration_key: str = "integrated",
     scvi_params={"save_model": False, "model_directory": None},

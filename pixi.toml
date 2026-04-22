@@ -73,6 +73,8 @@ spatialdata-io = "*"
 pyqt5 = "*"
 napari-spatialdata = "*"
 hotspotsc = "*"
+tangram = "*"
+rctd-py = "*"
 
 # [feature.experimental.pypi-dependencies]
 # symphonypy = "*"
@@ -125,20 +127,20 @@ plotnine = "*"
 liana = "*"
 mofapy2 = "*"
 
-[feature.corneto]
-channels = ["conda-forge", "bioconda", "nodefaults"]
+# [feature.corneto]
+# channels = ["conda-forge", "bioconda", "nodefaults"]
 
-[feature.corneto.dependencies]
-python = "*"
-python-graphviz = "*"
+# [feature.corneto.dependencies]
+# python = "*"
+# python-graphviz = "*"
 
-[feature.corneto.pypi-dependencies]
-scipy = "*"
-cvxpy = "*"
-cylp = "*"
-gurobipy = "*"
-corneto = "*"
-numpy = "<=2.3"
+# [feature.corneto.pypi-dependencies]
+# scipy = "*"
+# cvxpy = "*"
+# cylp = "*"
+# gurobipy = "*"
+# corneto = "*"
+# numpy = "<=2.3"
 
 [feature.scenic]
 channels = ["conda-forge", "bioconda", "nodefaults"]
@@ -170,7 +172,7 @@ hotspotsc = "==1.1.3"
 cellbender = { features = ["cellbender"], no-default-feature = true }
 cellcharter = { features = ["cellcharter", "utils"], no-default-feature = true }
 banksy = { features = ["banksy", "utils"], no-default-feature = true }
-main = { features = ["spatial-seq", "scRNA-seq", "utils", "corneto"], no-default-feature = true }
+main = { features = ["spatial-seq", "scRNA-seq", "utils"], no-default-feature = true }
 mofa = ["mofa", "utils"]
 scenic = { features = ["scenic", "utils"], no-default-feature = true }
 spagrn = { features = ["spagrn", "utils"], no-default-feature = true }

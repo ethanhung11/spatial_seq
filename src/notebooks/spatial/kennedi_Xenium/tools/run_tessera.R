@@ -5,10 +5,15 @@ Sys.setenv(RETICULATE_PYTHON = here(".pixi/envs/main/bin/python"))
 library(reticulate)
 library(tictoc)
 library(dplyr)
-library(tessera)
 library(Seurat)
 library(scCustomize)
 library(sf)
+
+library(Matrix)
+packageVersion("Matrix", lib.loc = NULL)
+# must use Matrix 1.6-X until they fix this PR https://github.com/korsunskylab/tessera/issues/24
+# find.package("Matrix", verbose=TRUE)
+library(tessera)
 
 options(future.globals.maxSize= 80*1024^3) # memory allowance
 future::plan(future::multicore) # parallelize

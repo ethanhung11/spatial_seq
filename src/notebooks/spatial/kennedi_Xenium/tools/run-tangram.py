@@ -1,4 +1,5 @@
 # pixi run -e main python -u ./src/notebooks/spatial/kennedi_Xenium/tools/run-tangram.py > ./outs/spatial/tools/tangram.out 2>&1
+# https://github.com/broadinstitute/Tangram
 
 import sys
 from pathlib import Path
@@ -49,7 +50,7 @@ if __name__ == "__main__":
     ad_map = tg.map_cells_to_space(
         adata_sc,
         adata_sp,
-        mode="cluster",
+        mode="clusters",
         cluster_label='cell type'
         # target_count=adata_sp.shape[0],
         # density_prior="uniform",

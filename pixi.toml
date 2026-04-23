@@ -3,21 +3,15 @@ authors = ["Ethan H <ethanhung11@gmail.com>"]
 name = "spatial_seq"
 version = "0.1.0"
 channels = ["conda-forge"]
-platforms = ["linux-64", "osx-arm64"]
+platforms = ["linux-64"]
 preview = ["pixi-build"]
-
-[tasks]
-
-[dependencies]
-python = ">3.8"
-jupyter = "*"
-seaborn = "*"
 
 [feature.utils.dependencies]
 python = "*"
 
 [feature.utils.pypi-dependencies]
 scanpy = "*"
+seaborn = "*"
 jupyter = "*"
 nbqa = { version = "*", extras = ["toolchain"] }
 ruff = "*"
@@ -31,11 +25,12 @@ channels = ["conda-forge", "bioconda", "vtraag"]
 python = ">=3.11, <=3.13"
 setuptools = "==69.5.1"
 louvain = "*"
+rpy2 = "*"
 
 [feature.scRNA-seq.pypi-dependencies]
-matplotlib = "==3.10.8"
-anndata = "==0.12.10"
-scanpy = "==1.12.0"
+anndata = ">=0.12.10"
+scanpy = ">=1.12.0"
+nbqa = { version = "*", extras = ["toolchain"] }
 anndata2ri = "*"
 mygene = "*"
 doubletdetection = "*"
@@ -48,7 +43,6 @@ pacmap = "*"
 pyucell = "*"
 decoupler = "*"
 omnipath = "*"
-paramiko = "==3.5.1"
 liana = "*"
 pydeseq2 = "*"
 gprofiler-official = "*"
@@ -59,9 +53,18 @@ pyclustree = "*"
 plotly = "*"
 plotnine = "*"
 glasbey = "*"
-ipykernel = ">7"
 lxml = "*"
 scsampler = "*"
+cnmf = "*"
+
+[feature.tacco]
+channels = ["conda-forge", "anaconda", "nodefaults"]
+platforms = ["linux-64"]
+
+[feature.tacco.dependencies]
+python = "<3.11"
+tacco = "==0.4.0.post1"
+anndata = "==0.10.9"
 
 [feature.spatial-seq.dependencies]
 python = ">=3.11, <=3.13"
@@ -73,8 +76,8 @@ spatialdata-io = "*"
 pyqt5 = "*"
 napari-spatialdata = "*"
 hotspotsc = "*"
-tangram = "*"
-rctd-py = "*"
+# tangram-sc = "*"
+# rctd-py = "*"
 
 # [feature.experimental.pypi-dependencies]
 # symphonypy = "*"
@@ -176,3 +179,4 @@ main = { features = ["spatial-seq", "scRNA-seq", "utils"], no-default-feature = 
 mofa = ["mofa", "utils"]
 scenic = { features = ["scenic", "utils"], no-default-feature = true }
 spagrn = { features = ["spagrn", "utils"], no-default-feature = true }
+tacco = { features = ["tacco", "utils"], no-default-feature = true }

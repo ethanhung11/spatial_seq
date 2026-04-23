@@ -1,4 +1,6 @@
-# pixi run -e main ./src/notebooks/spatial/kennedi_Xenium/tangram_cellmode.py > ./outs/spatial/tools/tangram.out 2>&1
+# pixi run -e main python -u ./src/notebooks/spatial/kennedi_Xenium/tools/run-rctdpy.py > ./outs/spatial/tools/rctd.out 2>&1
+# https://github.com/p-gueguen/rctd-py
+# https://p-gueguen.github.io/rctd-py/tutorial.html
 
 import pickle
 import sys

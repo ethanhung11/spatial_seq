@@ -27,7 +27,7 @@ if __name__ == "__main__":
     stopwatch(TASK, TASKSTART, mode=1)
 
     TASK = "RUN TACCO "
-    for method in ["OT", "RCTD", "tangram"]:
+    for method in ["OT"]:
         TASKSTART = stopwatch(TASK + method, START)
         adata_sp = tc.tl.annotate(
             adata_sp, adata_sc,

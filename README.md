@@ -1,3 +1,4 @@
 # spatial-seq
 
-`CC=$(which gcc) CXX=$(which g++) rye [cmd]`
+use pixi for package management
+custom functions used are in src/nname

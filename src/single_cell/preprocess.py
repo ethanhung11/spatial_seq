@@ -397,11 +397,13 @@ def PCA(
     comp: int = 50,
 ) -> sc.AnnData:
     print(
-        f"Starting PCA with gene mask {gene_mask} at {comp} comps, saved at .obsm[{key}]"
+        f"Setting layer to {layer}.\nStarting PCA with gene mask {gene_mask} at {comp} comps, saved at .obsm[{key}]."
     )
 
+    adata.X = adata.layers[layer].copy()
+    sc.pp.scale(adata)
     sc.pp.pca(
-        adata, n_comps=comp, mask_var=gene_mask, layer=layer, obsm=obsm, key_added=key
+        adata, n_comps=comp, mask_var=gene_mask, obsm=obsm, key_added=key
     )
     return adata
 

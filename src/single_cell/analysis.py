@@ -17,24 +17,26 @@ def module_score(
     adata: sc.AnnData,
     genesets: dict,
     collection_name: str,
+    layer = "normalized",
     method: str | Literal["Seurat", "UCell", "Decoupler"] = "Seurat",
     decoupler_method: str | Literal["ULM", "FGSEA", "GSVA", "AUCell", "ORA", "Consensus"] = None,
     zscore: bool = False,
     save_obs: bool = False,
+    **kwargs,
 ):
     for name in genesets:
         genesets[name] = pd.Series(genesets[name]).unique()
 
     if method == "Seurat":
         for name in tqdm(genesets):
-            sc.tl.score_genes(adata, genesets[name], score_name=f"{name}-Seurat")
+            sc.tl.score_genes(adata, genesets[name], score_name=f"{name}-Seurat", use_raw=False, layer=layer, **kwargs)
         
         pat = f"-{method}|".join(list(genesets.keys())) + f"-{method}"
         adata.obsm[f"{collection_name}-{method}"] = adata.obs.loc[:,adata.obs.columns.str.contains(pat, regex=True)]
         clear_obs(adata, pat)
 
     elif method == "UCell":
-        uc.compute_ucell_scores(adata, signatures=genesets, suffix="-UCell")
+        uc.compute_ucell_scores(adata, signatures=genesets, layer=layer, suffix="-UCell", **kwargs)
         pat = f"-{method}|".join(list(genesets.keys())) + f"-{method}"
         adata.obsm[f"{collection_name}-{method}"] = adata.obs.loc[:,adata.obs.columns.str.contains(pat, regex=True)]
         clear_obs(adata, pat)
@@ -55,29 +57,29 @@ def module_score(
         genesets['source'] = genesets['source'] + f"-{method}"
 
         if method == "ULM":
-            dc.mt.ulm(data=adata, net=genesets, layer="normalized", verbose=True)
+            dc.mt.ulm(data=adata, net=genesets, layer=layer, verbose=True, **kwargs)
             adata.obsm[f"{collection_name}-{method}"] = adata.obsm["score_ulm"]
             adata.obsm[f"{collection_name}-{method}_padj"] = adata.obsm["padj_ulm"]
             del adata.obsm["score_ulm"], adata.obsm["padj_ulm"]
         elif method == "FGSEA":
-            dc.mt.gsea(data=adata, net=genesets, layer="normalized", verbose=True)
+            dc.mt.gsea(data=adata, net=genesets, layer=layer, verbose=True, **kwargs)
             adata.obsm[f"{collection_name}-{method}"] = adata.obsm["score_gsea"]
             adata.obsm[f"{collection_name}-{method}_padj"] = adata.obsm["padj_gsea"]
             del adata.obsm["score_gsea"], adata.obsm["padj_gsea"]
         elif method == "GSVA":
-            dc.mt.gsva(data=adata, net=genesets, layer="normalized", verbose=True)
+            dc.mt.gsva(data=adata, net=genesets, layer=layer, verbose=True, **kwargs)
             adata.obsm[f"{collection_name}-{method}"] = adata.obsm["score_gsva"]
             del adata.obsm["score_gsva"]
         elif method == "AUCell":
-            dc.mt.aucell(data=adata, net=genesets, layer="normalized", verbose=True)
+            dc.mt.aucell(data=adata, net=genesets, layer=layer, verbose=True, **kwargs)
             adata.obsm[f"{collection_name}-{method}"] = adata.obsm["score_aucell"]
             del adata.obsm["score_aucell"]
         elif method == "ORA":
-            dc.mt.ora(data=adata, net=genesets, layer="normalized", verbose=True)
+            dc.mt.ora(data=adata, net=genesets, layer=layer, verbose=True, **kwargs)
             adata.obsm[f"{collection_name}-{method}"] = adata.obsm["score_ora"]
             del adata.obsm["score_ora"]
         elif method == "Consensus":
-            dc.mt.consensus(data=adata, net=genesets, layer="normalized", verbose=True)
+            dc.mt.consensus(data=adata, net=genesets, layer=layer, verbose=True)
             # adata.obsm[f"{collection_name}-{method}"] = adata.obsm["score_consensus"]
             # del adata.obsm["score_consensus"]
         else:

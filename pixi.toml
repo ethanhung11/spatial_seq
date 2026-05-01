@@ -76,6 +76,7 @@ spatialdata-io = "*"
 pyqt5 = "*"
 napari-spatialdata = "*"
 hotspotsc = "*"
+cellcharter = "*"
 # tangram-sc = "*"
 # rctd-py = "*"
 

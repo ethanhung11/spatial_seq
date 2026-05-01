@@ -13,8 +13,8 @@ import rpy2.robjects as ro
 from single_cell.R import R_preload, get_converter
 
 
-def rename_uns(adata, pat, prefix=None, suffix=None,
-                replace=None, filter=None):
+def rename_uns(adata: sc.AnnData, pat: str, prefix: str=None, suffix: str=None,
+                replace: str=None, filter: str=None):
     if (prefix or suffix) and replace:
         raise ValueError("Use prefix/suffix OR replace.")
     if not (prefix or suffix or replace):
@@ -35,8 +35,8 @@ def rename_uns(adata, pat, prefix=None, suffix=None,
     return True
 
 
-def rename_obsm(adata, pat, prefix=None, suffix=None,
-                replace=None, filter=None):
+def rename_obsm(adata: sc.AnnData, pat: str, prefix: str=None, suffix: str=None,
+                replace: str=None, filter: str=None):
     if (prefix or suffix) and replace:
         raise ValueError("Use prefix/suffix OR replace.")
     if not (prefix or suffix or replace):
@@ -58,8 +58,8 @@ def rename_obsm(adata, pat, prefix=None, suffix=None,
     return True
 
 
-def rename_obsp(adata, pat, prefix=None, suffix=None,
-                replace=None, filter=None):
+def rename_obsp(adata: sc.AnnData, pat: str, prefix: str=None, suffix: str=None,
+                replace: str=None, filter: str=None):
     if (prefix or suffix) and replace:
         raise ValueError("Use prefix/suffix OR replace.")
     if not (prefix or suffix or replace):
@@ -80,8 +80,8 @@ def rename_obsp(adata, pat, prefix=None, suffix=None,
     return True
 
 
-def rename_varm(adata, pat, prefix=None, suffix=None,
-                replace=None, filter=None):
+def rename_varm(adata: sc.AnnData, pat: str, prefix: str=None, suffix: str=None,
+                replace: str=None, filter: str=None):
     if (prefix or suffix) and replace:
         raise ValueError("Use prefix/suffix OR replace.")
     if not (prefix or suffix or replace):
@@ -146,8 +146,7 @@ def clear_varm(adata: sc.AnnData, pat: str, filter: str=None):
             del adata.varm[key]
 
 
-
-def clear_adata(adata, search, filter=None):
+def clear_adata(adata: sc.AnnData, search: str, filter=None):
     if (
         isinstance(search, str)
         or isinstance(search, int)
@@ -167,6 +166,16 @@ def clear_adata(adata, search, filter=None):
         clear_obsp(adata, term, filter)
         clear_varm(adata, term, filter)
         print("\n")
+
+
+def obs_to_obsm(adata: sc.AnnData, pat: str, mode: Literal[1,-1]=1):
+    if mode == 1:
+        adata.obsm["HotspotModule"] = adata.obs[adata.obs.columns[adata.obs.columns.str.contains("HotspotModule")]].copy()
+        clear_obs(adata, "HotspotModule")
+    elif mode == -1:
+        adata.obs = pd.merge(adata.obs, adata.obsm[pat], left_index=True, right_index=True)
+    else:
+        raise ValueError("mode must be 1 (to obsm) or -1 (to obs)")
 
 
 def clean_string(s):

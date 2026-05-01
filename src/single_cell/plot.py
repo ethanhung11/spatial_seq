@@ -535,7 +535,7 @@ def plot_cluster_stackedbarplot(
     if colors is None:
         colors = color_gen(adata.obs[clusters].cat.categories)
     if ax is None:
-        f, ax = plt.subplots(1, 2, figsize=(5, 5), layout="constrained")
+        f, ax = plt.subplots(1, 1, figsize=(5, 5), layout="constrained")
 
     crosstab_counts = pd.crosstab(adata.obs[groupby], adata.obs[clusters])
 

@@ -168,12 +168,15 @@ def clear_adata(adata: sc.AnnData, search: str, filter=None):
         print("\n")
 
 
-def obs_to_obsm(adata: sc.AnnData, pat: str, mode: Literal[1,-1]=1):
-    if mode == 1:
-        adata.obsm["HotspotModule"] = adata.obs[adata.obs.columns[adata.obs.columns.str.contains("HotspotModule")]].copy()
-        clear_obs(adata, "HotspotModule")
-    elif mode == -1:
+def obs_to_obsm(adata: sc.AnnData, pat: str, to: Literal["obsm","obs"]="obsm"):
+    if to == "obsm":
+        assert "HotspotModule" not in adata.obsm
+        adata.obsm[pat] = adata.obs[adata.obs.columns[adata.obs.columns.str.contains(pat)]].copy()
+        clear_obs(adata, pat)
+    elif to == "obs":
+        assert "HotspotModule" in adata.obsm
         adata.obs = pd.merge(adata.obs, adata.obsm[pat], left_index=True, right_index=True)
+        del adata.obsm[pat]
     else:
         raise ValueError("mode must be 1 (to obsm) or -1 (to obs)")
 

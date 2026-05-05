@@ -7,14 +7,15 @@ library(reticulate)
 library(sceasy)
 library(Seurat)
 
-DATADIR <- here("data", "processed", "single_cell", "Emont2022")
-obj_name <- "cleaned"
+DATADIR <- here("data", "processed", "spatial", "Xenium", "kennedi_flu")
+obj_name <- "integrated_slim"
+obj_name_new <- "integrated"
 
 tic("converting to Seurat object")
 seurat_object <- sceasy::convertFormat(
   here(DATADIR, paste0(obj_name,".h5ad")), 
   from = "anndata", 
   to = "seurat",
-  outFile=here(DATADIR, paste0(obj_name,".rds"))
+  outFile=here(DATADIR, paste0(obj_name_new,".rds"))
 )
 toc()

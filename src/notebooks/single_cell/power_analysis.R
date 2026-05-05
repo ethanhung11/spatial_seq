@@ -114,13 +114,13 @@ set.seed(123)
 # Set the number of samples, number of cells per sample, and create batch structure
 ncases <- 5
 nctrls <- 5
-nbatches <- 5
+nbatches <- 2
 batchStructure <- distribSamples(ncases = ncases, nctrls = nctrls, nbatches = nbatches)
-ncells <- rep(1000, times = ncases + nctrls)
+ncells <- rep(5000, times = ncases + nctrls)
 names(ncells) <- batchStructure$sample_names
 
 params <- createParamTable(
-  nreps = 5,
+  nreps = 10,
   clus = "clusASPC",
   fc = 5,
   ncases = ncases,
@@ -164,3 +164,19 @@ suppressWarnings({
     )
   })
 })
+
+dir <- file.path(getwd(), "power_analysis")
+filenames <- list.files(path = dir,
+                        full.names = T,
+                        pattern = '*res') %>% basename
+resTables <- lapply(filenames, function(x){
+  readRDS(file.path(dir, x))[["res"]]
+})
+
+getPowerFromRes(
+  resFiles = filenames,
+  resTables = resTables,
+  threshold = 0.05,
+  z = 1.96,
+  stratByClus = FALSE
+)

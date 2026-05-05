@@ -1,12 +1,15 @@
+# Use this command to run it. Relies on having a [project].Rproj file and repo root, for the here() reference.
 # Rscript src/notebooks/spatial/kennedi_Xenium/tools/cellchat_DEFAULT.R &> ./outs/spatial/tools/cellchat.out
+
 options(max.print = 300)
 options(stringsAsFactors = FALSE)
 library(here)
 library(dplyr)
 library(tictoc)
-source(here("src", "single_cell", "cellchat.R"))
+source(here("src", "single_cell", "cellchat.R")) # Kennedi: may need to adjust this
 
 tic("start")
+# Kennedi: may need to adjust these paths too
 DATADIR <- here("data", "processed", "spatial", "Xenium", "kennedi_flu")
 CELLCHAT_DIR <- here(DATADIR, "tools", "cellchat")
 FILENAME <- "integrated.rds"
@@ -14,6 +17,7 @@ CELLTYPE_KEY <- "LabelTransfer_OT"
 SPATIAL_KEY <- "SPATIAL"
 GROUP_KEY <- "Groups"
 
+# Kennedi: and these ones
 dir.create(CELLCHAT_DIR, showWarnings = FALSE)
 savename <- "cellchat_DEFAULT"
 has.pathway <- TRUE

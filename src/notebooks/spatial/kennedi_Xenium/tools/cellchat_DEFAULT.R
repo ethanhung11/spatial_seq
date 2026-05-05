@@ -21,7 +21,7 @@ has.pathway <- TRUE
 tic("read seurat object")
 seurat_object <- readRDS(here(DATADIR, FILENAME))
 seurat_object <- NormalizeData(seurat_object)
-Idents(seurat_object) <- seurat_object[[CELLTYPE_KEY]]
+Idents(seurat_object) <- seurat_object[[CELLTYPE_KEY]][[CELLTYPE_KEY]]
 groups <- levels(seurat_object[[GROUP_KEY]])
 toc()
 

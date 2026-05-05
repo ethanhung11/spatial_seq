@@ -25,6 +25,9 @@ Idents(seurat_object) <- seurat_object[[CELLTYPE_KEY]][[CELLTYPE_KEY]]
 groups <- levels(seurat_object[[GROUP_KEY]])
 toc()
 
+# Assume for Xenium 1:1 voxel to um. May need to double check.
+
+# Run across all cells, no separation of condition
 tic("run CellChat (all)")
 cellchat <- prepCellChat(
   seurat_object,
@@ -37,7 +40,7 @@ cellchat <- runCellChat(cellchat, spatial=TRUE, pathway=has.pathway)
 saveRDS(cellchat, file = here(CELLCHAT_DIR, paste0(savename,"ALL.rds")))
 toc()
 
-# run on timepoint data
+# Run across cells for each condition separately
 for (g in groups) {
   tic(paste("run CellChat", g))
 
@@ -56,6 +59,8 @@ for (g in groups) {
   toc()
 }
 
+# Merge conditions where applicable for valid comparisons
+# per Kennedi: rest-d3-d7-d14 for ctrl only & ctrl-tgfbf per timepoint
 tic("run Merged CellChat")
 cellchat.list <- lapply(
   here(CELLCHAT_DIR,paste0(savename, "_", groups, ".rds")),
@@ -63,7 +68,7 @@ cellchat.list <- lapply(
 )
 names(cellchat.list) <- groups
 
-# # CUSTOM - Merge all neurons
+# # CUSTOM - Merge all celltypes of the same kind, if useful. My commented example below was for Pailin's various neuron celltypes.
 # grouped_celltypes <- levels(cellchat.list[[1]]@idents)
 # grouped_celltypes[grepl("neu", grouped_celltypes, ignore.case = TRUE)] <- "Neurons"
 # grouped_celltypes <- factor(grouped_celltypes)

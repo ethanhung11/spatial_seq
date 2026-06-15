@@ -6,18 +6,18 @@ options(stringsAsFactors = FALSE)
 library(here)
 library(dplyr)
 library(tictoc)
-source(here("src", "single_cell", "cellchat.R")) # Kennedi: may need to adjust this
 
+ # TODO: match directory structure
 tic("start")
-# Kennedi: may need to adjust these paths too
+source(here("src", "single_cell", "cellchat.R"))
 DATADIR <- here("data", "processed", "spatial", "Xenium", "kennedi_flu")
 CELLCHAT_DIR <- here(DATADIR, "tools", "cellchat")
 FILENAME <- "integrated.rds"
-CELLTYPE_KEY <- "LabelTransfer_OT"
+CELLTYPE_KEY <- "celltype0518"
 SPATIAL_KEY <- "SPATIAL"
+SAMPLE_KEY <- "Sample"
 GROUP_KEY <- "Groups"
 
-# Kennedi: and these ones
 dir.create(CELLCHAT_DIR, showWarnings = FALSE)
 savename <- "cellchat_DEFAULT"
 has.pathway <- TRUE
@@ -27,22 +27,23 @@ seurat_object <- readRDS(here(DATADIR, FILENAME))
 seurat_object <- NormalizeData(seurat_object)
 Idents(seurat_object) <- seurat_object[[CELLTYPE_KEY]][[CELLTYPE_KEY]]
 groups <- levels(seurat_object[[GROUP_KEY]])
+print(groups)
 toc()
 
-# Assume for Xenium 1:1 voxel to um. May need to double check.
-
-# Run across all cells, no separation of condition
-tic("run CellChat (all)")
-cellchat <- prepCellChat(
-  seurat_object,
-  CELLTYPE_KEY,
-  spatial=TRUE,
-  spatial_key=SPATIAL_KEY,
-  spatial_factors=data.frame(ratio = 1, tol = 5))
-cellchat <- subsetData(cellchat)
-cellchat <- runCellChat(cellchat, spatial=TRUE, pathway=has.pathway)
-saveRDS(cellchat, file = here(CELLCHAT_DIR, paste0(savename,"ALL.rds")))
-toc()
+# # Assume for Xenium 1:1 voxel to um. Double check with technology.
+# # Run across all cells, no separation of condition
+# tic("run CellChat (all)")
+# cellchat <- prepCellChat(
+#   seurat_object,
+#   CELLTYPE_KEY,
+#   sample_col,
+#   spatial=TRUE,
+#   spatial_key=SPATIAL_KEY,
+#   spatial_factors=data.frame(ratio = 1, tol = 5))
+# cellchat <- subsetData(cellchat)
+# cellchat <- runCellChat(cellchat, spatial=TRUE, pathway=has.pathway)
+# saveRDS(cellchat, file = here(CELLCHAT_DIR, paste0(savename, "_", "ALL.rds")))
+# toc()
 
 # Run across cells for each condition separately
 for (g in groups) {
@@ -52,9 +53,11 @@ for (g in groups) {
   cellchat <- prepCellChat(
     subset_seurat,
     CELLTYPE_KEY,
-    spatial=TRUE,
-    spatial_key=SPATIAL_KEY,
-    spatial_factors=data.frame(ratio = 1, tol = 5))
+    sample_col,
+    # spatial=TRUE,
+    # spatial_key=SPATIAL_KEY,
+    # spatial_factors=data.frame(ratio = 1, tol = 5)
+    )
   cellchat <- subsetData(cellchat)
 
   cellchat <- runCellChat(cellchat, spatial=TRUE, pathway=has.pathway)

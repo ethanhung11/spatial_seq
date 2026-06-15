@@ -36,8 +36,7 @@ prepCellChat <- function(
   
   if (is.null(db)) {
     CellChatDB <- CellChatDB.mouse
-    CellChatDB.use <- subsetDB(CellChatDB, search = "Secreted Signaling", key = "annotation")
-    cellchat@DB <- CellChatDB.use
+    cellchat@DB <- subsetDB(CellChatDB)
   } else {
     cellchat@DB <- db
   }

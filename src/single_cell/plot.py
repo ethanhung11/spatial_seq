@@ -99,12 +99,15 @@ def check_QCPlot(df, value, groupby):
 def check_integration(
     adata: sc.AnnData,
     category: str,
-    f,
+    f = None,
     embeddings: Iterable[str] = ["X_umap", "LocalMAP"],
     nrow: int = None,
     palette: pd.Series = None,
     mini=False,
 ):
+    if f is None:
+        f = plt.figure(figsize=(10,10))
+    
     if adata.obs[category].dtype != "category":
         print(f"Converting adata.obs[{category}] to `category` dtype.")
         adata.obs[category] = adata.obs[category].astype("category")

@@ -7,26 +7,41 @@ library(here)
 library(dplyr)
 library(tictoc)
 
- # TODO: match directory structure
+# TODO: Adjust inputs
 tic("start")
 source(here("src", "single_cell", "cellchat.R"))
 DATADIR <- here("data", "processed", "spatial", "Xenium", "kennedi_flu")
 CELLCHAT_DIR <- here(DATADIR, "tools", "cellchat")
 FILENAME <- "integrated.rds"
+savename <- "cellchat_DEFAULT"
+
 CELLTYPE_KEY <- "celltype0518"
-SPATIAL_KEY <- "SPATIAL"
 SAMPLE_KEY <- "Sample"
 GROUP_KEY <- "Groups"
-
-dir.create(CELLCHAT_DIR, showWarnings = FALSE)
-savename <- "cellchat_DEFAULT"
 has.pathway <- TRUE
+
+USE_SPATIAL <- FALSE
+SPATIAL_KEY <- "SPATIAL"
+SPOT_SIZE <- 1
+SPATIAL_FACTOR <- data.frame(ratio = 1, tol = SPOT_SIZE/2)
+# Adjust `ratio` only -- this should be spot size / pixels per spot --> um / voxel
+# e.g. Visium has 65um spots / 200 voxel units per spot --> 0.325
+# e.g. Xenium has 1um units / 1 voxel --> 1
+# Reference: https://htmlpreview.github.io/?https://github.com/jinworks/CellChat/blob/master/tutorial/CellChat_analysis_of_multiple_spatial_transcriptomics_datasets.html#create-a-cellchat-object:~:text=CellChat)%0Alibrary(patchwork)-,Part%20I%3A%20Data%20input%20%26%20processing%20and%20initialization%20of%20CellChat%20object,-Load%20data
+
+
+# input processing
+dir.create(CELLCHAT_DIR, showWarnings = FALSE)
+if (USE_SPATIAL == FALSE) {
+  SPATIAL_KEY <- NULL
+  SPATIAL_FACTOR <- NULL
+}
 
 tic("read seurat object")
 seurat_object <- readRDS(here(DATADIR, FILENAME))
 seurat_object <- NormalizeData(seurat_object)
-Idents(seurat_object) <- seurat_object[[CELLTYPE_KEY]][[CELLTYPE_KEY]]
-groups <- levels(seurat_object[[GROUP_KEY]])
+Idents(seurat_object) <- seurat_object@meta.data[CELLTYPE_KEY][[CELLTYPE_KEY]]
+groups <- levels(as.factor(seurat_object@meta.data[GROUP_KEY][[GROUP_KEY]]))
 print(groups)
 toc()
 
@@ -36,10 +51,10 @@ toc()
 # cellchat <- prepCellChat(
 #   seurat_object,
 #   CELLTYPE_KEY,
-#   sample_col,
-#   spatial=TRUE,
+#   SAMPLE_KEY,
+#   spatial=USE_SPATIAL,
 #   spatial_key=SPATIAL_KEY,
-#   spatial_factors=data.frame(ratio = 1, tol = 5))
+#   spatial_factors=SPATIAL_FACTOR)
 # cellchat <- subsetData(cellchat)
 # cellchat <- runCellChat(cellchat, spatial=TRUE, pathway=has.pathway)
 # saveRDS(cellchat, file = here(CELLCHAT_DIR, paste0(savename, "_", "ALL.rds")))
@@ -49,18 +64,17 @@ toc()
 for (g in groups) {
   tic(paste("run CellChat", g))
 
-  subset_seurat <- subset(seurat_object, subset = timepoint == g)
+  subset_seurat <- seurat_object[, seurat_object[[GROUP_KEY]] == g]
   cellchat <- prepCellChat(
     subset_seurat,
     CELLTYPE_KEY,
-    sample_col,
-    # spatial=TRUE,
-    # spatial_key=SPATIAL_KEY,
-    # spatial_factors=data.frame(ratio = 1, tol = 5)
-    )
+    SAMPLE_KEY,
+    spatial=USE_SPATIAL,
+    spatial_key=SPATIAL_KEY,
+    spatial_factors=SPATIAL_FACTOR
+  )
   cellchat <- subsetData(cellchat)
-
-  cellchat <- runCellChat(cellchat, spatial=TRUE, pathway=has.pathway)
+  cellchat <- runCellChat(cellchat, pathway=has.pathway, spatial=TRUE)
   saveRDS(cellchat, file = here(CELLCHAT_DIR, paste0(savename, "_", g, ".rds")))
 
   toc()

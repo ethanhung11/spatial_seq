@@ -97,7 +97,7 @@ if __name__ == "__main__":
 
         PCA(adata, None, "PCA")
         Visualize(adata, "INT_none", obsm="global_PCA", localmap=False)
-        PCA(adata)
+        PCA(adata, "highly_variable", "PCA-hvg")
         Visualize(adata, "INT_none_hvg", obsm="global_PCA_hvg", localmap=False)
 
         stopwatch(task, task_start, mode=1)
@@ -125,7 +125,7 @@ if __name__ == "__main__":
                         kind=integration_method,
                         integration_key=int_key,
                     )
-                    Visualize(adata, key=int_key, obsm=int_key, localmap=True, show=True)
+                    Visualize(adata, key=int_key, obsm=int_key, localmap=True, show=False)
                     
                     stopwatch(task, task_start, mode=1)
 

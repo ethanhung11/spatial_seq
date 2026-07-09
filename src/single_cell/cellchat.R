@@ -11,7 +11,7 @@ prepCellChat <- function(
     spatial_key="spatial",
     spatial_factors=NULL) {
 
-  Idents(seurat.obj) <- unlist(seurat.obj[[celltype_col]])
+  Idents(seurat.obj) <- seurat.obj[[celltype_col]] %>% unname() %>% unlist()
   
   if (!is.null(sample_col)) {
     seurat.obj[["samples"]] <- seurat.obj[[sample_col]]

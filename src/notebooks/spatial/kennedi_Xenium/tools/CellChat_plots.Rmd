@@ -43,6 +43,7 @@ DATADIR <- here("data", "processed", "spatial", "Xenium", "kennedi_flu")
 CELLCHAT_DIR <- here(DATADIR, "tools", "cellchat")
 PLOT_DIR <- here("plots", "adipose atlas", savename)
 load.seurat <- FALSE
+visualize.spatial.range <- FALSE
 has.pathway <- TRUE
 
 if (load.seurat == TRUE) {
@@ -51,15 +52,25 @@ if (load.seurat == TRUE) {
   Idents(seurat_object) <- seurat_object$celltype_hires
   conditions <- levels(seurat_object$Diet)
   seurat_object$sample[1]
-  # p <- FeaturePlot(subset(seurat_object, sample == seurat_object$sample[1]), "celltype", reduction = "spatial")
-  # ratio <- 4/3 #um per px
-  # p +
-#   geom_circle(aes(x0 = x0, y0 = y0, r = r), data = data.frame(x0 = 7500, y0 = 2000, r = 250/ratio), inherit.aes = FALSE, color = "black", fill = NA, linewidth = 1) +
-#   coord_fixed() +
-#   geom_circle(aes(x0 = x0, y0 = y0, r = r), data = data.frame(x0 = 7500, y0 = 2000, r = 100/ratio), inherit.aes = FALSE, color = "black", fill = NA, linewidth = 1) +
-#   coord_fixed()
+  
+  if (visualize.spatial.range == TRUE) {
+    p <- FeaturePlot(subset(seurat_object, sample == seurat_object$sample[1]), "celltype", reduction = "spatial")
+    ratio <- 4/3 #um / voxel
+    p +
+      geom_circle(aes(x0 = x0, y0 = y0, r = r),
+                  data = data.frame(x0 = 7500, y0 = 2000, r = 250/ratio),
+                  inherit.aes = FALSE, color = "black", fill = NA, linewidth = 1) +
+      coord_fixed() +
+      geom_circle(aes(x0 = x0, y0 = y0, r = r),
+                  data = data.frame(x0 = 7500, y0 = 2000, r = 100/ratio), 
+                  inherit.aes = FALSE, color = "black", fill = NA, linewidth = 1) +
+      coord_fixed()
+  }
 } else {
-  conditions <- NULL #TODO: update
+  conditions <- c(
+    "Ctrl-Rest", "Ctrl-D3", "Ctrl-D7", "Ctrl-D14",
+    "Tgfbr2F-Rest", "Tgfbr2F-D3", "Tgfbr2F-D7", "Tgfbr2F-D14"
+  )
 }
 
 # read in cellchat objects
@@ -73,15 +84,18 @@ cellchat.MERGED <- readRDS(here(CELLCHAT_DIR, paste0(savename, "_MERGED", ".rds"
 
 library(ggthemes)
 library(pals)
-max <- length(conditions)
-my_cols <- glasbey(max)
-groups <- conditions
 group_colors <- glasbey(max)
+max <- length(conditions)
 
-comparisons_int <- list(c(1,2))
-comparisons <- lapply(comparisons_int, function(idx) groups[idx])
+# list of comparisons using integer indices (e.c. c(1,2))
+comparisons_int <- list(c(1,2)) 
+# same as above but with condition names
+comparisons <- lapply(comparisons_int, function(idx) conditions[idx]) 
+# full str representation of above
 comparisons_title <- lapply(comparisons, paste, collapse = " vs ")
+# consistent colors for multiconditions
 comparisons_colors <- lapply(comparisons_int, function(idx) group_colors[idx])
+
 
 m <- "weight"
 available_slots <- if (has.pathway) c("net", "netP") else c("net")
@@ -98,7 +112,7 @@ all.celltypes <- levels(cellchat.MERGED@idents$joint)
 
 dir.create(here(PLOT_DIR, "_Overview"), showWarnings = F, recursive = T)
 
-# Merged groups
+# Merged conditions
 groupSize <- cellchat.MERGED@idents[["joint"]] %>% table() %>% as.numeric()
 
 
@@ -197,16 +211,16 @@ for (slot in available_slots) {
     width = 3000, height = 1000, dpi = 300, units="px")
 }
 
-{ # Individual groups
+{ # Individual conditions
   num.link <- sapply(cellchat.list, function(x) {rowSums(x@net$count) + colSums(x@net$count)-diag(x@net$count)})
   weight.MinMax <- c(min(num.link), max(num.link)) # control the dot size in the different datasets
   
   { # SCATTER
     f <- list()
-    for (g in names(cellchat.list)) {
-      f[[g]] <- netAnalysis_signalingRole_scatter(
-        cellchat.list[[g]],
-        title = paste(g, "signaling strength"),
+    for (c in names(cellchat.list)) {
+      f[[c]] <- netAnalysis_signalingRole_scatter(
+        cellchat.list[[c]],
+        title = paste(c, "signaling strength"),
         weight.MinMax = weight.MinMax,
         slot.name = "net")
     }
@@ -223,14 +237,14 @@ for (slot in available_slots) {
       width = 6000, height = 2000, res = 300, type = "cairo")
     par(mfrow = c(1,max), mar = c(1,1,1,1))
     for (n in 1:max) {
-      groupSize <- cellchat.list[[groups[n]]]@idents %>% table() %>% as.numeric()
+      groupSize <- cellchat.list[[conditions[n]]]@idents %>% table() %>% as.numeric()
       netVisual_circle(
-        cellchat.list[[groups[n]]]@net[[m]],
+        cellchat.list[[conditions[n]]]@net[[m]],
         vertex.weight = groupSize,
         weight.scale = T,
         label.edge= F,
         margin = 0.4,
-        title.name = paste("Interaction", m, "by celltype,", groups[n]))
+        title.name = paste("Interaction", m, "by celltype,", conditions[n]))
       if (n < max) par(fig = c(n/max, (n+1)/max, 0, 1), new = TRUE)
     }
     dev.off()
@@ -242,13 +256,13 @@ for (slot in available_slots) {
       width = 6000, height = 2000, res = 300, type = "cairo")
     par(mfrow = c(1,max), mar = c(1,1,1,1))
     for (n in 1:max) {
-      chordDiagram(cellchat.list[[groups[n]]]@net[[m]], 
-               grid.col = scPalette(length(levels(cellchat.list[[groups[n]]]@idents))),
+      chordDiagram(cellchat.list[[conditions[n]]]@net[[m]], 
+               grid.col = scPalette(length(levels(cellchat.list[[conditions[n]]]@idents))),
                transparency = 0.5,
                directional = 1,
                direction.type = c("diffHeight", "arrows"),
                link.arr.type = "big.arrow")
-      title(main = paste("Interaction", m, "by celltype,", groups[n]))
+      title(main = paste("Interaction", m, "by celltype,", conditions[n]))
       circos.clear()
       if (n < max) par(fig = c(n/max, (n+1)/max, 0, 1), new = TRUE)
     }
@@ -256,19 +270,19 @@ for (slot in available_slots) {
   }
 }
 
-
+# # Broken but also maybe not useful...
 # { # combined in/out scatter
 #   df_list <- list()
-#   for (g in groups) {
-#     W <- cellchat.list[[g]]@net$weight
+#   for (c in conditions) {
+#     W <- cellchat.list[[c]]@net$weight
 #     outgoing <- rowSums(W)
 #     incoming <- colSums(W)
 # 
-#     df_list[[g]] <- data.frame(
+#     df_list[[c]] <- data.frame(
 #       celltype = rownames(W),
 #       outgoing = outgoing,
 #       incoming = incoming,
-#       timepoint = g
+#       timepoint = c
 #     )
 #   }
 #   df <- bind_rows(df_list)
@@ -341,7 +355,7 @@ cli_progress_bar("Celltype Specific Plots", total = length(all.celltypes))
 for (celltype in all.celltypes) {
   dir.create(here(PLOT_DIR, celltype), showWarnings = F, recursive = T)
   
-  # Merged groups
+  # Merged conditions
   groupSize <- cellchat.MERGED@idents[["joint"]] %>% table() %>% as.numeric()
   
   
@@ -426,7 +440,7 @@ for (celltype in all.celltypes) {
       width = 6000, height = height, dpi = 300, units="px", limitsize = FALSE)
   }
 
-  ### Individual groups
+  ### Individual conditions
 
   { # CIRCOPLOT
     jpeg(
@@ -434,32 +448,32 @@ for (celltype in all.celltypes) {
       width = 6000, height = 2000, res = 300, type = "cairo")
     par(mfrow = c(1,max), mar = c(1,1,1,1))
     for (n in 1:max) {
-      groupSize <- cellchat.list[[groups[n]]]@idents %>% table() %>% as.numeric()
+      groupSize <- cellchat.list[[conditions[n]]]@idents %>% table() %>% as.numeric()
       netVisual_circle(
-        cellchat.list[[groups[n]]]@net[[m]],
+        cellchat.list[[conditions[n]]]@net[[m]],
         vertex.weight = groupSize,
         idents.use = celltype,
         weight.scale = T,
         label.edge= F,
         margin = 0.4,
-        title.name = paste("Interaction", m, "by celltype,", groups[n]))
+        title.name = paste("Interaction", m, "by celltype,", conditions[n]))
       if (n < max) par(fig = c(n/max, (n+1)/max, 0, 1), new = TRUE)
     }
     dev.off()
   }
     
   # BUBBLE
-  for (g in groups) {
+  for (c in conditions) {
     capture.output(try(suppressMessages(suppressWarnings(
-      gg1 <- netVisual_bubble(cellchat.list[[g]], sources.use = celltype, title.name=paste("Outgoing", celltype, "LR pairs"))
+      gg1 <- netVisual_bubble(cellchat.list[[c]], sources.use = celltype, title.name=paste("Outgoing", celltype, "LR pairs"))
     )), silent = TRUE))
     
     capture.output(try(suppressMessages(suppressWarnings(
-      gg2 <- netVisual_bubble(cellchat.list[[g]], targets.use = celltype, title.name=paste("Incoming", celltype, "LR pairs"))
+      gg2 <- netVisual_bubble(cellchat.list[[c]], targets.use = celltype, title.name=paste("Incoming", celltype, "LR pairs"))
     )), silent = TRUE))
     
     ggsave(
-      here(PLOT_DIR, celltype, paste0("Total_SigLR_Dot-", g, ".jpg")),
+      here(PLOT_DIR, celltype, paste0("Total_SigLR_Dot-", c, ".jpg")),
       plot=gg1 + gg2,
       width = 3000, height = 3000, dpi = 300, units="px", limitsize = FALSE)
   }
@@ -467,7 +481,7 @@ for (celltype in all.celltypes) {
 }
 ```
 
-# Specific Questions
+# Targeted plots for specific questions
 
 ```{r specific signaling?, fig.width=15, fig.height=15}
 dir.create(here(PLOT_DIR, "_Signaling"), showWarnings = F, recursive = T)

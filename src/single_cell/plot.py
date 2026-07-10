@@ -106,7 +106,7 @@ def check_integration(
     mini=False,
 ):
     if f is None:
-        f = plt.figure(figsize=(10,10))
+        f = plt.figure(figsize=(10,10), layout="constrained")
     
     if adata.obs[category].dtype != "category":
         print(f"Converting adata.obs[{category}] to `category` dtype.")
@@ -146,8 +146,8 @@ def check_integration(
                 xycoords="axes fraction",
                 horizontalalignment="right",
                 verticalalignment="bottom",
+                # legend_loc='none' if e<len(embeddings)-1 else "right margin"
             )
-            # legend_loc='none' if e<len(embeddings)-1 else "right margin")
 
         else:
             size = 100000 / adata.shape[0]
@@ -164,7 +164,13 @@ def check_integration(
                 ax=ax,
                 show=False,
                 palette=palette.to_list(),
+                legend_loc="right margin"
             )
+            ax.legend().set_visible(False)
+            if e == len(embeddings)-1:
+                h, l = ax.get_legend_handles_labels()
+                f.legend(h,l, bbox_to_anchor=(1.05, 0.5), loc="center left")
+            
             ax.annotate(
                 f"n = {adata.shape[0]}",
                 size=10,
@@ -263,7 +269,7 @@ def check_doublets(
 
 def plot_violinplot(
     adata: sc.AnnData,
-    group: str,
+    cluster: str,
     markers: Iterable[str] | dict[str, Iterable[str]],
     f=None,
     layer: str = "normalized",
@@ -288,18 +294,18 @@ def plot_violinplot(
     x_fontsize /= downscale
     y_bracket_fontsize /= downscale
 
-    if adata.obs[group].dtype != "category":
-        print(f"Converting adata.obs[{group}] to `category` dtype.")
-        adata.obs[group] = adata.obs[group].astype("category")
+    if adata.obs[cluster].dtype != "category":
+        print(f"Converting adata.obs[{cluster}] to `category` dtype.")
+        adata.obs[cluster] = adata.obs[cluster].astype("category")
     if palette is None and adata.uns.get(f"{group}_colors") is None:
         print("Palette not found! Generating palette.")
-        palette = color_gen(adata.obs[group].cat.categories)
+        palette = color_gen(adata.obs[cluster].cat.categories)
 
     # Convert markers to flat list for plotting
     is_dict = isinstance(markers, dict)
     marker_list = list(markers.values()) if is_dict else [[m] for m in markers]
     flat_markers = [m for group_markers in marker_list for m in group_markers]
-    n_groups = len(adata.obs[group].unique())
+    n_groups = len(adata.obs[cluster].unique())
 
     # Create subplots
     if f:
@@ -322,7 +328,7 @@ def plot_violinplot(
         sc.pl.violin(
             adata,
             m,
-            groupby=group,
+            groupby=cluster,
             use_raw=False,
             layer=layer,
             show=False,
@@ -406,36 +412,36 @@ def plot_violinplot(
 
 
 def plot_cluster_violinplot(
-    adata, group: str, clusters: str, markers, f=None, downscale=1.0
+    adata, cluster: str, split_by: str, markers, f=None, downscale=1.0
 ):
     n_markers = (
-        np.sum(len(m) for m in markers.values())
+        np.sum([len(m) for m in markers.values()])
         if isinstance(markers, dict)
         else len(markers)
     )
-    n_groups = len(adata.obs[clusters].unique()) * len(adata.obs[group].unique())
+    n_groups = len(adata.obs[split_by].unique()) * len(adata.obs[cluster].unique())
     if f is None:
         # print(n_markers)
         f = plt.figure(
             figsize=((n_groups * 1.2) / downscale, (n_markers * 1.2 + 3) / downscale), layout="constrained"
         )
 
-    clusts = adata.obs[clusters].cat.categories
-    cols = color_gen(adata.obs[group].cat.categories, True)
+    clusts = adata.obs[split_by].cat.categories
+    cols = color_gen(adata.obs[cluster].cat.categories, True)
     sf = f.subfigures(
         2,
         len(clusts),
         height_ratios=([len(markers) * 1.2, 3]),
     )
 
-    crosstab_counts = pd.crosstab(adata.obs[clusters], adata.obs[group])
+    crosstab_counts = pd.crosstab(adata.obs[split_by], adata.obs[cluster])
     crosstab_pct = crosstab_counts.div(crosstab_counts.sum(axis=0), axis=1) * 100
 
     for n, cluster in enumerate(clusts):
-        cdata = adata[adata.obs[clusters] == cluster]
+        cdata = adata[adata.obs[split_by] == cluster]
         plot_violinplot(
             cdata,
-            group,
+            split_by,
             markers,
             sf[0, n],
             useStripPlot=False,
@@ -444,7 +450,7 @@ def plot_cluster_violinplot(
             y_bracket_offset=-0.2,
             y_bracket_text_offset=-0.1,
             title=cluster,
-            downscale=downscale
+            downscale=downscale,
         )
 
         ax = sf[1, n].subplots(1, 1)
@@ -464,7 +470,7 @@ def plot_cluster_violinplot(
 
         sf[0, n].suptitle(cluster, size=15)
 
-    f.suptitle(f"{clusters} expression by {group}", size=25)
+    f.suptitle(f"{split_by} expression by {cluster}", size=25)
 
     return f
 

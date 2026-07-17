@@ -42,23 +42,25 @@ seurat_object <- readRDS(here(DATADIR, FILENAME))
 seurat_object <- NormalizeData(seurat_object)
 Idents(seurat_object) <- seurat_object@meta.data[CELLTYPE_KEY][[CELLTYPE_KEY]]
 groups <- levels(as.factor(seurat_object@meta.data[GROUP_KEY][[GROUP_KEY]]))
+
+groups <- grep("Tgfbr", groups, value = TRUE)
 print(groups)
 toc()
 
-# # Assume for Xenium 1:1 voxel to um. Double check with technology.
-# # Run across all cells, no separation of condition
-# tic("run CellChat (all)")
-# cellchat <- prepCellChat(
-#   seurat_object,
-#   CELLTYPE_KEY,
-#   SAMPLE_KEY,
-#   spatial=USE_SPATIAL,
-#   spatial_key=SPATIAL_KEY,
-#   spatial_factors=SPATIAL_FACTOR)
-# cellchat <- subsetData(cellchat)
-# cellchat <- runCellChat(cellchat, spatial=TRUE, pathway=has.pathway)
-# saveRDS(cellchat, file = here(CELLCHAT_DIR, paste0(savename, "_", "ALL.rds")))
-# toc()
+# Assume for Xenium 1:1 voxel to um. Double check with technology.
+# Run across all cells, no separation of condition
+tic("run CellChat (all)")
+cellchat <- prepCellChat(
+  seurat_object,
+  CELLTYPE_KEY,
+  SAMPLE_KEY,
+  spatial=USE_SPATIAL,
+  spatial_key=SPATIAL_KEY,
+  spatial_factors=SPATIAL_FACTOR)
+cellchat <- subsetData(cellchat)
+cellchat <- runCellChat(cellchat, spatial=USE_SPATIAL, pathway=has.pathway)
+saveRDS(cellchat, file = here(CELLCHAT_DIR, paste0(savename, "_", "ALL.rds")))
+toc()
 
 # Run across cells for each condition separately
 for (g in groups) {
@@ -74,7 +76,7 @@ for (g in groups) {
     spatial_factors=SPATIAL_FACTOR
   )
   cellchat <- subsetData(cellchat)
-  cellchat <- runCellChat(cellchat, pathway=has.pathway, spatial=TRUE)
+  cellchat <- runCellChat(cellchat, pathway=has.pathway, spatial=USE_SPATIAL)
   saveRDS(cellchat, file = here(CELLCHAT_DIR, paste0(savename, "_", g, ".rds")))
 
   toc()

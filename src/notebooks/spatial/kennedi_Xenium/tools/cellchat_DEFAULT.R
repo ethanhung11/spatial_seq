@@ -7,22 +7,26 @@ library(here)
 library(dplyr)
 library(tictoc)
 
-# TODO: Adjust inputs
 tic("start")
+# DIRECTORIES
 source(here("src", "single_cell", "cellchat.R"))
 DATADIR <- here("data", "processed", "spatial", "Xenium", "kennedi_flu")
 CELLCHAT_DIR <- here(DATADIR, "tools", "cellchat")
 FILENAME <- "integrated.rds"
 savename <- "cellchat_DEFAULT"
 
+# LABLEL PARAMS
 CELLTYPE_KEY <- "celltype0518"
 SAMPLE_KEY <- "Sample"
 GROUP_KEY <- "Groups"
 has.pathway <- TRUE
 
+# SPATIAL PARAMS
 USE_SPATIAL <- FALSE
 SPATIAL_KEY <- "SPATIAL"
 SPOT_SIZE <- 1
+INTERACTION_RANGE <- 250
+CONTACT_RANGE <- 100
 SPATIAL_FACTOR <- data.frame(ratio = 1, tol = SPOT_SIZE/2)
 # Adjust `ratio` only -- this should be spot size / pixels per spot --> um / voxel
 # e.g. Visium has 65um spots / 200 voxel units per spot --> 0.325
@@ -35,6 +39,8 @@ dir.create(CELLCHAT_DIR, showWarnings = FALSE)
 if (USE_SPATIAL == FALSE) {
   SPATIAL_KEY <- NULL
   SPATIAL_FACTOR <- NULL
+  INTERACTION_RANGE <- NULL
+  CONTACT_RANGE <- NULL
 }
 
 tic("read seurat object")
@@ -56,7 +62,12 @@ cellchat <- prepCellChat(
   spatial_key=SPATIAL_KEY,
   spatial_factors=SPATIAL_FACTOR)
 cellchat <- subsetData(cellchat)
-cellchat <- runCellChat(cellchat, spatial=USE_SPATIAL, pathway=has.pathway)
+cellchat <- runCellChat(
+  cellchat,
+  pathway=has.pathway,
+  spatial=USE_SPATIAL,
+  interaction.range=INTERACTION_RANGE,
+  contact.range=CONTACT_RANGE)
 saveRDS(cellchat, file = here(CELLCHAT_DIR, paste0(savename, "_", "ALL.rds")))
 toc()
 
@@ -74,7 +85,12 @@ for (g in groups) {
     spatial_factors=SPATIAL_FACTOR
   )
   cellchat <- subsetData(cellchat)
-  cellchat <- runCellChat(cellchat, pathway=has.pathway, spatial=USE_SPATIAL)
+  cellchat <- runCellChat(
+    cellchat,
+    pathway=has.pathway,
+    spatial=USE_SPATIAL,
+    interaction.range=INTERACTION_RANGE,
+    contact.range=CONTACT_RANGE)
   saveRDS(cellchat, file = here(CELLCHAT_DIR, paste0(savename, "_", g, ".rds")))
 
   toc()

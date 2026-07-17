@@ -55,8 +55,8 @@ runCellChat <- function(cellchat, spatial=FALSE, pathway=FALSE, ...) {
   print("running LR modeling")
   if (spatial == TRUE) {
     cellchat <- computeCommunProb(cellchat, type = "truncatedMean", trim = 0.1, 
-                                  distance.use = FALSE, interaction.range = 250, scale.distance = NULL,
-                                  contact.dependent = TRUE, contact.range = 100, ...)
+                                  distance.use = FALSE, scale.distance = NULL,
+                                  contact.dependent = TRUE, ...)
   } else {
     cellchat <- computeCommunProb(cellchat, type = "triMean", ...)
   }

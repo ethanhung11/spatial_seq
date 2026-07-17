@@ -42,8 +42,6 @@ seurat_object <- readRDS(here(DATADIR, FILENAME))
 seurat_object <- NormalizeData(seurat_object)
 Idents(seurat_object) <- seurat_object@meta.data[CELLTYPE_KEY][[CELLTYPE_KEY]]
 groups <- levels(as.factor(seurat_object@meta.data[GROUP_KEY][[GROUP_KEY]]))
-
-groups <- grep("Tgfbr", groups, value = TRUE)
 print(groups)
 toc()
 
